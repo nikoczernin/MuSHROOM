@@ -2,7 +2,7 @@ import pandas as pd
 import os
 
 
-def read_data_from_folders(data_path: str) -> tuple:
+def read_data_from_folders(data_path: str) -> list:
     '''
     If the data is located in your_working_dir/data and zips are extracted into
     this folder the function should automatically load all data in dfs. See map_folder dict for reference.
@@ -21,5 +21,5 @@ def read_data_from_folders(data_path: str) -> tuple:
                 df_list.append(pd.read_json(os.path.join(data_subfolder_path, filename), lines=True))
         map_folder[folder] = pd.concat(df_list)
 
-    return map_folder['sample'], map_folder['train'], map_folder['val']
+    return [map_folder['sample'], map_folder['train'], map_folder['val']]
 
