@@ -19,6 +19,8 @@ class Lemmatizer:
         Returns:
         - str: A list of lemmatized words in string format.
         """
+        # lang should be uppercase
+        lang = lang.upper()
         # Load the appropriate spaCy language model based on the specified language.
         nlp = spacy.load(Lemmatizer._get_model_for_lang(lang))
 

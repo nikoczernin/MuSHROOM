@@ -12,11 +12,12 @@ if __name__ == "__main__":
 
     #for df in df_list:
     for df in [df_list[0]]:
+        print(f"Languages in this dataframe: {df.lang.unique().tolist()}")
         for col in cols_to_lemmatize:
             df[col] = df.apply(
                 lambda row: Lemmatizer.lemmatize_text_input(
                     text=row[col],
-                    lang=row['lang'].upper()
+                    lang=row['lang']
                 ), axis=1
             )
 

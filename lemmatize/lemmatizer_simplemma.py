@@ -19,7 +19,10 @@ class Lemmatizer:
         if isinstance(lang, list):
             languages = tuple(lang)
         # languages should all be lowercase
-        lang = tuple(lang.lower() for lang in lang)
+        if isinstance(lang, tuple):
+            lang = tuple(lang.lower() for lang in lang)
+        else:
+            lang = lang.lower()
         # return the lemmatized tokens as a string
         return str(simplemma.text_lemmatizer(text, lang=lang))
 
