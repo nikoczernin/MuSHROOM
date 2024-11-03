@@ -1,7 +1,8 @@
 import os
 
 from preprocess.load_data import read_data_from_folders
-from lemmatize.lemmatizer import Lemmatizer
+# from lemmatize.lemmatizer import Lemmatizer
+from lemmatize.lemmatizer_simplemma import Lemmatizer
 
 if __name__ == "__main__":
     DATA_DIR = os.getcwd() + '/data'
@@ -15,7 +16,7 @@ if __name__ == "__main__":
             df[col] = df.apply(
                 lambda row: Lemmatizer.lemmatize_text_input(
                     text=row[col],
-                    lang_model=row['lang'].upper()
+                    lang=row['lang'].upper()
                 ), axis=1
             )
 

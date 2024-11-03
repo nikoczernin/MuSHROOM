@@ -8,19 +8,19 @@ class Lemmatizer:
         dummy = 'asdasd'
 
     @staticmethod
-    def lemmatize_text_input(text: str, lang_model: str) -> str:
+    def lemmatize_text_input(text: str, lang: str) -> str:
         """
         Lemmatizes the input text using a specified language model.
 
         Parameters:
         - text (str): The text to lemmatize.
-        - lang_model (str): A language code (e.g., 'EN' for English) that specifies the Spacy model to use.
+        - lang (str): A language code (e.g., 'EN' for English) that specifies the Spacy model to use.
 
         Returns:
         - str: A list of lemmatized words in string format.
         """
         # Load the appropriate spaCy language model based on the specified language.
-        nlp = spacy.load(Lemmatizer._get_model_for_lang(lang_model))
+        nlp = spacy.load(Lemmatizer._get_model_for_lang(lang))
 
         # Process the text using the loaded spaCy model to create a Doc object.
         doc = nlp(text)
