@@ -4,7 +4,7 @@ from preprocess.load_data import read_data_from_folders
 from lemmatize.lemmatizer import Lemmatizer
 
 if __name__ == "__main__":
-    DATA_DIR = os.getcwd() + '\\data'
+    DATA_DIR = os.getcwd() + '/data'
     df_list = read_data_from_folders(DATA_DIR)
 
     cols_to_lemmatize = ['model_input', 'model_output_text']
