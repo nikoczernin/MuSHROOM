@@ -10,8 +10,7 @@ if __name__ == "__main__":
 
     cols_to_lemmatize = ['model_input', 'model_output_text']
 
-    #for df in df_list:
-    for df in [df_list[0]]:
+    for df in df_list:
         print(f"Languages in this dataframe: {df.lang.unique().tolist()}")
         for col in cols_to_lemmatize:
             df[col] = df.apply(
@@ -21,5 +20,5 @@ if __name__ == "__main__":
                 ), axis=1
             )
 
-    print("ready")
+    print("Lemmatizing is done!")
 

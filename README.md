@@ -6,6 +6,19 @@ NLP class task: detecting hallucination spans within the Mu-SHROOM text data
 - lemmatization
 - preprocessing, data quality issues, missing values etc
 
+# Notes:
+Used Languages:
+- Arabic (Modern standard)
+- Chinese (Mandarin)
+- English
+- Finnish
+- French
+- German
+- Hindi
+- Italian
+- Spanish
+- Swedish
+
 # Install:
 - pip install -r requirements.txt
 - python -m spacy download en_core_web_sm

@@ -1,6 +1,11 @@
 import simplemma
 
 
+# simplemma misses the following languages
+# Arabic (Modern standard)
+# Chinese (Mandarin)
+
+
 class Lemmatizer:
 
     @staticmethod
