@@ -9,7 +9,7 @@ import simplemma
 class Lemmatizer:
 
     @staticmethod
-    def lemmatize_text_input(text: str, lang) -> str:
+    def lemmatize_text_input(text: str, lang="en") -> str:
         """
         Lemmatizes the input text using a specified language model.
 
