@@ -103,7 +103,7 @@ def get_ngrams_around_hallucinations() -> pd.DataFrame:
     pass
 
 
-if __name__ == "__main__":
+def test():
     # Sample text input for preprocessing
     text = [
         "Es ist die blanke Wahrheit: die FPÖ kann scheißen gehn!",
@@ -126,3 +126,7 @@ if __name__ == "__main__":
     read_path = "../data/output/test_en"
     docs = [CoNLL.conll2doc(f"{read_path}/{path}") for path in os.listdir(read_path)]
     print(docs)
+
+
+if __name__ == "__main__":
+    test()
