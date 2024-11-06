@@ -2,7 +2,7 @@ import pandas as pd
 import os
 
 
-def read_data_from_folders(data_path: str) -> list:
+def read_data_from_folders(data_path: str) -> dict:
     '''
     Loads JSON and JSONL data files from subfolders within the specified data path,
     creating DataFrames for 'sample', 'train', and 'val' data.
@@ -38,7 +38,7 @@ def read_data_from_folders(data_path: str) -> list:
         map_folder[folder] = pd.concat(df_list)
 
     # Return a list of DataFrames for sample, train, and val
-    return [map_folder['sample'], map_folder['train'], map_folder['val']]
+    return map_folder
 
 
 if __name__ == "__main__":
