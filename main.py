@@ -13,7 +13,7 @@ if __name__ == "__main__":
     # when debugging, go row for row in preprocessing and print every row
     DEBUG = True
     if DEBUG: print("######## Debuggin mode is on!! ########")
-
+    ROW_BY_ROW = True
 
 
 
@@ -48,7 +48,8 @@ if __name__ == "__main__":
 
     # Loop over each DataFrame and column to preprocess text data
     for df_name, df in dataDict.items():
-        if df_name != "val": continue # TODO: delete this before pushing!
+        # if df_name != "val": continue # TODO: delete this before pushing!
+
 
         for col in cols_to_process:
             # skip if the current df doesnt contain the current col
@@ -59,21 +60,28 @@ if __name__ == "__main__":
             print("Processing", df_name, "---", col)
             # Retrieve the text data for the specified column in the current DataFrame
             doc = df[col]
+            langs = df["lang"]
+            print(f"All detected languages in this dataset: {list(set(df['lang']))}")
+
+            # Download missing languages
+            preprocessor.update_languages(langs)
 
             # Define a filename for saving the processed text
             foldername = f"{df_name}_{col}_processed"
 
-            if DEBUG:
+            if DEBUG or ROW_BY_ROW:
                 for i, text in enumerate(df[col]):
-                    if i <= 132: continue
-                    print(f"Processing: {text} -->")
-                    # Process the document using the Preprocess class
-                    text_processed = preprocessor.preprocess(text)
-                    print(text_processed)
-                    # Save the processed text in CoNLL format to the specified path
-                    Preprocess.save_processed_text(text_processed, f"data/output/{foldername}_DEBUG")
+                    # if not """सजायाफ्ता""" in text: continue # limit the process to that one shitty hindi line
+                    lang = langs.iloc[i]
 
-            elif not DEBUG:
+                    print(f"Processing: ({lang}) \"{text[:100]} ...\" --> ")
+                    # Process the document using the Preprocess class
+                    text_processed = preprocessor.preprocess(text, lang)
+                    # print(text_processed)
+                    # Save the processed text in CoNLL format to the specified path
+                    Preprocess.save_processed_text(text_processed, f"data/output/{foldername}_ROW_BY_ROW")
+
+            elif not DEBUG and not ROW_BY_ROW:
                 # Process the document using the Preprocess class
                 doc_processed = preprocessor.preprocess(doc)
                 # Save the processed text in CoNLL format to the specified path

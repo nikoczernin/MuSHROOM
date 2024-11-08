@@ -11,14 +11,17 @@ stanza.download(lang="multilingual")  # Download model for multilingual processi
 
 class Preprocess:
     # Class attribute to track downloaded languages
-    LANGUAGES = []
+
 
     def __init__(self):
-        # Initialize with a MultilingualPipeline for processing multiple languages
-        self.Pipeline = Preprocess.get_pipeline()
+        # keep a dict of all pipelines
+        self.PIPELINES = {
+            # Initialize with a MultilingualPipeline for processing multiple languages
+            "auto": MultilingualPipeline(processors='tokenize,lemma,pos')
+        }
 
-    @staticmethod
-    def add_language(lang):
+
+    def update_languages(self, langs):
         """
         Adds a specified language model if not already downloaded,
         and updates the LANGUAGES list.
@@ -26,21 +29,17 @@ class Preprocess:
         Parameters:
         - lang (str): Language code (e.g., 'en' for English)
         """
-        if lang not in Preprocess.LANGUAGES:
-            stanza.download(lang)
-            Preprocess.LANGUAGES.append(lang)
+        for lang in list(set(langs)):
+            lang = lang.lower() # stanza languages are all lowercase
+            if lang not in self.PIPELINES.keys():
+                print(f"Downloading missing language: {lang}")
+                stanza.download(lang)
+                self.PIPELINES[lang] = stanza.Pipeline(lang, processors='tokenize,lemma,pos')
 
-    @staticmethod
-    def get_pipeline():
-        """
-        Returns a multilingual pipeline with tokenization, lemmatization, and POS tagging processors.
 
-        Returns:
-        - MultilingualPipeline: A Stanza pipeline configured for multiple languages.
-        """
-        return MultilingualPipeline(processors='tokenize,lemma,pos')
 
-    def preprocess(self, docs: list, lang="en"):
+
+    def preprocess(self, docs: list, lang="auto"):
         """
         Processes a list of text documents, converting each to a Stanza Document format.
 
@@ -54,7 +53,17 @@ class Preprocess:
         # Convert each input text to a Stanza Document object
         docs = [Document([], text=text) for text in docs]
         # Return the processed documents using the initialized pipeline
-        return self.Pipeline(docs)
+        # if no language parameter was given, use the autodetect multilingual pipeline
+        # otherwise use the wanted language
+        # print(lang)
+        # print(type(lang))
+        if isinstance(lang, str):
+            processed_text = self.PIPELINES[lang.lower()](docs)
+        else:
+            processed_text = self.PIPELINES["auto"](docs)
+
+        return processed_text
+
 
     @staticmethod
     def save_processed_text(processed_text, path: str):
@@ -75,7 +84,7 @@ class Preprocess:
         print("Saving to", path)
         for i,doc in enumerate(processed_text):
             CoNLL.write_doc2conll(doc, f"{path}/{i}.conllu")
-        print("Saving successful!")
+        print("\tSaving successful!")
 
     @staticmethod
     def print(processed_text, max_lines=None):
