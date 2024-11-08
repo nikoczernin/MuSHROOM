@@ -1,6 +1,8 @@
 import pandas as pd
 import os
 
+from stanza.utils.conll import CoNLL
+
 
 def read_data_from_folders(data_path: str) -> dict:
     '''
@@ -41,10 +43,22 @@ def read_data_from_folders(data_path: str) -> dict:
     return map_folder
 
 
-if __name__ == "__main__":
+def test_raw_data():
     # Define the path to the data directory (assumes it is one level up in '../data')
     DATA_DIR = os.getcwd() + '/../data'
     # Call the function to load data and store DataFrames in df_list
     df_list = read_data_from_folders(DATA_DIR)
     # Print the list of DataFrames to verify the data has loaded correctly
     print(df_list)
+
+
+def test_conll_data(path):
+    docs = CoNLL.conll2doc(path)
+    print(docs)
+    print("Great success, I like!")
+
+
+if __name__ == "__main__":
+    pass
+    # test_raw_data()
+    test_conll_data(f"../data/output/holistic_outputs/sample_model_input.conllu")

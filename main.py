@@ -1,88 +1,71 @@
 import os
 
-# Import function to read data from folders and preprocess class for text processing
+# Import function to read data from folders and the Preprocess class for text processing
 from preprocess.load_data import read_data_from_folders
 from preprocess.preprocess import Preprocess
 
-# Import the lemmatizer module (change to use simplemma-based lemmatizer)
-# TODO: is this obsolete now that we have a preprocess package?
-from lemmatize.lemmatizer_simplemma import Lemmatizer
+
+
+
 
 if __name__ == "__main__":
-    # debugging parameter
-    # when debugging, go row for row in preprocessing and print every row
-    DEBUG = True
-    if DEBUG: print("######## Debuggin mode is on!! ########")
-    ROW_BY_ROW = True
-
-
 
     # Define the path to the data directory
+    # os.getcwd() returns the current working directory; adding '/data' to it specifies the data folder
     DATA_DIR = os.getcwd() + '/data'
 
-    # Load sample, train, and validation data from folders as a dictionary
+    # Load data from 'sample', 'train', and 'validation' folders as a dictionary
+    # The dictionary keys are the folder names, and values are the DataFrames with the data
     dataDict = read_data_from_folders(DATA_DIR)
 
-    # TODO: val - model_output_text fails with a error
-    # TypeError: argument of  type 'NoneType' is not iterable
-    # Investigate!
-
-    val = dataDict["val"]
-    print(val.model_output_text)
-
-
-
-
-
-    # Create an instance of the Preprocess class for text processing
+    # Create an instance of the Preprocess class to handle text processing operations
     preprocessor = Preprocess()
 
-    # Define columns to process and corresponding DataFrame names
+    # Define the columns we want to process and the dataset names we're working with
+    # Each column in cols_to_process will be processed in each DataFrame in dataDict
     cols_to_process = ['model_input', 'model_output_text']
-    # cols_to_process = ['model_output_text']
     df_names = ["sample", "train", "val"]
 
-
-
-
-
-    # Loop over each DataFrame and column to preprocess text data
+    # Loop over each DataFrame and each specified column to preprocess text data
     for df_name, df in dataDict.items():
-        # if df_name != "val": continue # TODO: delete this before pushing!
-
-
         for col in cols_to_process:
-            # skip if the current df doesnt contain the current col
+            # Check if the DataFrame contains the specified column; if not, skip it
             if col not in df.columns:
-                print(f"The dataframe {df_name} does not contain the column {col}")
+                print(f"The DataFrame '{df_name}' does not contain the column '{col}'")
                 continue
 
             print("Processing", df_name, "---", col)
-            # Retrieve the text data for the specified column in the current DataFrame
+
+            # Retrieve the text data and languages for the specified column in the current DataFrame
             doc = df[col]
             langs = df["lang"]
             print(f"All detected languages in this dataset: {list(set(df['lang']))}")
 
-            # Download missing languages
+            # Update the preprocessor to include languages in 'langs' (download models if missing)
             preprocessor.update_languages(langs)
 
-            # Define a filename for saving the processed text
-            foldername = f"{df_name}_{col}_processed"
+            # Define the folder name for saving processed text output
+            foldername = f"holistic_outputs"
 
-            if DEBUG or ROW_BY_ROW:
-                for i, text in enumerate(df[col]):
-                    # if not """सजायाफ्ता""" in text: continue # limit the process to that one shitty hindi line
-                    lang = langs.iloc[i]
+            # Initialize an empty list to store processed data for this column
+            processed_data = []
 
-                    print(f"Processing: ({lang}) \"{text[:100]} ...\" --> ")
-                    # Process the document using the Preprocess class
-                    text_processed = preprocessor.preprocess(text, lang)
-                    # print(text_processed)
-                    # Save the processed text in CoNLL format to the specified path
-                    Preprocess.save_processed_text(text_processed, f"data/output/{foldername}_ROW_BY_ROW")
+            # Iterate over each row to process text with language-specific handling
+            # This is especially necessary because some languages (e.g., Hindi) might require special handling
+            for i, text in enumerate(df[col]):
+                # Retrieve the language for this row from the 'lang' column
+                lang = langs.iloc[i]
 
-            elif not DEBUG and not ROW_BY_ROW:
-                # Process the document using the Preprocess class
-                doc_processed = preprocessor.preprocess(doc)
-                # Save the processed text in CoNLL format to the specified path
-                Preprocess.save_processed_text(doc_processed, f"data/output/{foldername}")
+                # Display debug information about the row being processed (first 100 characters of text)
+                print(f"\tProcessing: ({lang}) \"{text[:100]} ...\"")
+
+                # Process the text using the Preprocess class, which might unpack it if necessary
+                # This processing is row-by-row because some languages could trip up a bulk pipeline
+                text_processed = preprocessor.preprocess(text, lang)[0]
+
+                # Append the processed text to our list for later saving
+                processed_data.append(text_processed)
+
+            # After processing all rows in the column, save the processed text in CoNLL format
+            # Each dataset and column is saved as a separate file in <foldername>
+            Preprocess.save_processed_text(processed_data, f"data/output/{foldername}", f"{df_name}_{col}.conllu")
