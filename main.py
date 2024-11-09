@@ -45,7 +45,7 @@ if __name__ == "__main__":
             preprocessor.update_languages(langs)
 
             # Define the folder name for saving processed text output
-            foldername = f"holistic_outputs"
+            foldername = f"preprocessing_outputs"
 
             # Initialize an empty list to store processed data for this column
             processed_data = []

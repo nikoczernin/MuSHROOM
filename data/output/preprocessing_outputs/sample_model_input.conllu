@@ -1,0 +1,129 @@
+# text = When was the restoration of the Sándor Palace completed?
+# sent_id = 0
+1	When	when	ADV	WRB	PronType=Int	0	_	_	start_char=0|end_char=4
+2	was	be	AUX	VBD	Mood=Ind|Number=Sing|Person=3|Tense=Past|VerbForm=Fin	1	_	_	start_char=5|end_char=8
+3	the	the	DET	DT	Definite=Def|PronType=Art	2	_	_	start_char=9|end_char=12
+4	restoration	restoration	NOUN	NN	Number=Sing	3	_	_	start_char=13|end_char=24
+5	of	of	ADP	IN	_	4	_	_	start_char=25|end_char=27
+6	the	the	DET	DT	Definite=Def|PronType=Art	5	_	_	start_char=28|end_char=31
+7	Sándor	Sándor	PROPN	NNP	Number=Sing	6	_	_	start_char=32|end_char=38
+8	Palace	Palace	PROPN	NNP	Number=Sing	7	_	_	start_char=39|end_char=45
+9	completed	complete	VERB	VBN	Tense=Past|VerbForm=Part	8	_	_	start_char=46|end_char=55|SpaceAfter=No
+10	?	?	PUNCT	.	_	9	_	_	start_char=55|end_char=56|SpaceAfter=No
+
+# text = Did the Scotland team debut in the UEFA Euro 1996 qualifying phase?
+# sent_id = 0
+1	Did	do	AUX	VBD	Mood=Ind|Number=Sing|Person=3|Tense=Past|VerbForm=Fin	0	_	_	start_char=0|end_char=3
+2	the	the	DET	DT	Definite=Def|PronType=Art	1	_	_	start_char=4|end_char=7
+3	Scotland	Scotland	PROPN	NNP	Number=Sing	2	_	_	start_char=8|end_char=16
+4	team	team	NOUN	NN	Number=Sing	3	_	_	start_char=17|end_char=21
+5	debut	debut	VERB	VB	VerbForm=Inf	4	_	_	start_char=22|end_char=27
+6	in	in	ADP	IN	_	5	_	_	start_char=28|end_char=30
+7	the	the	DET	DT	Definite=Def|PronType=Art	6	_	_	start_char=31|end_char=34
+8	UEFA	UEFA	PROPN	NNP	Abbr=Yes|Number=Sing	7	_	_	start_char=35|end_char=39
+9	Euro	Euro	PROPN	NNP	Number=Sing	8	_	_	start_char=40|end_char=44
+10	1996	1996	NUM	CD	NumForm=Digit|NumType=Card	9	_	_	start_char=45|end_char=49
+11	qualifying	qualifying	NOUN	NN	Number=Sing	10	_	_	start_char=50|end_char=60
+12	phase	phase	NOUN	NN	Number=Sing	11	_	_	start_char=61|end_char=66|SpaceAfter=No
+13	?	?	PUNCT	.	_	12	_	_	start_char=66|end_char=67|SpaceAfter=No
+
+# text = Contre quelles équipes l'Azerbaïdjan a-t-il été éliminé lors de l'Euro 1996 ?
+# sent_id = 0
+1	Contre	contre	ADP	_	_	0	_	_	start_char=0|end_char=6
+2	quelles	quel	DET	_	Gender=Fem|Number=Plur|PronType=Int	1	_	_	start_char=7|end_char=14
+3	équipes	équipe	NOUN	_	Gender=Fem|Number=Plur	2	_	_	start_char=15|end_char=22
+4	l'	le	DET	_	Definite=Def|Number=Sing|PronType=Art	3	_	_	start_char=23|end_char=25|SpaceAfter=No
+5	Azerbaïdjan	Azerbaïdjan	PROPN	_	Number=Sing	4	_	_	start_char=25|end_char=36
+6	a	avoir	AUX	_	Mood=Ind|Number=Sing|Person=3|Tense=Pres|VerbForm=Fin	5	_	_	start_char=37|end_char=38|SpaceAfter=No
+7	-t-il	lui	PRON	_	Emph=No|Gender=Masc|Number=Sing|Person=3|PronType=Prs	6	_	_	start_char=38|end_char=43
+8	été	être	AUX	_	Gender=Masc|Number=Sing|Tense=Past|VerbForm=Part	7	_	_	start_char=44|end_char=47
+9	éliminé	éliminer	VERB	_	Gender=Masc|Number=Sing|Tense=Past|VerbForm=Part|Voice=Pass	8	_	_	start_char=48|end_char=55
+10	lors	lors	ADV	_	_	9	_	_	start_char=56|end_char=60
+11	de	de	ADP	_	_	10	_	_	start_char=61|end_char=63
+12	l'	le	DET	_	Definite=Def|Number=Sing|PronType=Art	11	_	_	start_char=64|end_char=66|SpaceAfter=No
+13	Euro	Euro	PROPN	_	Number=Sing	12	_	_	start_char=66|end_char=70
+14	1996	1996	NUM	_	Number=Plur	13	_	_	start_char=71|end_char=75
+15	?	?	PUNCT	_	_	14	_	_	start_char=76|end_char=77|SpaceAfter=No
+
+# text = 8437
+# sent_id = 0
+1	8437	8437	NUM	_	NumType=Card	0	_	_	start_char=0|end_char=4
+
+# text = Bernicla est-il un objet transneptunien ?
+# sent_id = 1
+1	Bernicla	Bernicla	PROPN	_	_	0	_	_	start_char=5|end_char=13
+2	est	être	AUX	_	Mood=Ind|Number=Sing|Person=3|Tense=Pres|VerbForm=Fin	1	_	_	start_char=14|end_char=17|SpaceAfter=No
+3	-il	lui	PRON	_	Emph=No|Gender=Masc|Number=Sing|Person=3|PronType=Prs	2	_	_	start_char=17|end_char=20
+4	un	un	DET	_	Definite=Ind|Gender=Masc|Number=Sing|PronType=Art	3	_	_	start_char=21|end_char=23
+5	objet	objet	NOUN	_	Gender=Masc|Number=Sing	4	_	_	start_char=24|end_char=29
+6	transneptunien	transneptunien	ADJ	_	Gender=Masc|Number=Sing	5	_	_	start_char=30|end_char=44
+7	?	?	PUNCT	_	_	6	_	_	start_char=45|end_char=46|SpaceAfter=No
+
+# text = Over which state did Xiong Ai rule?
+# sent_id = 0
+1	Over	over	ADP	IN	_	0	_	_	start_char=0|end_char=4
+2	which	which	DET	WDT	PronType=Int	1	_	_	start_char=5|end_char=10
+3	state	state	NOUN	NN	Number=Sing	2	_	_	start_char=11|end_char=16
+4	did	do	VERB	VBD	Mood=Ind|Number=Sing|Person=3|Tense=Past|VerbForm=Fin	3	_	_	start_char=17|end_char=20
+5	Xiong	Xiong	PROPN	NNP	Number=Sing	4	_	_	start_char=21|end_char=26
+6	Ai	Ai	PROPN	NNP	Number=Sing	5	_	_	start_char=27|end_char=29
+7	rule	rule	NOUN	NN	Number=Sing	6	_	_	start_char=30|end_char=34|SpaceAfter=No
+8	?	?	PUNCT	.	_	7	_	_	start_char=34|end_char=35|SpaceAfter=No
+
+# text = ¿Desde cuándo el palacio Sándor en Budapest funge como residencia oficial del presidente de Hungría?
+# sent_id = 0
+1	¿	¿	PUNCT	fia	PunctSide=Ini|PunctType=Qest	0	_	_	start_char=0|end_char=1|SpaceAfter=No
+2	Desde	desde	ADP	sps00	_	1	_	_	start_char=1|end_char=6
+3	cuándo	cuándo	ADV	pt000000	PronType=Int	2	_	_	start_char=7|end_char=13
+4	el	el	DET	da0ms0	Definite=Def|Gender=Masc|Number=Sing|PronType=Art	3	_	_	start_char=14|end_char=16
+5	palacio	palacio	NOUN	ncms000	Gender=Masc|Number=Sing	4	_	_	start_char=17|end_char=24
+6	Sándor	sándor	PROPN	np00000	_	5	_	_	start_char=25|end_char=31
+7	en	en	ADP	sps00	_	6	_	_	start_char=32|end_char=34
+8	Budapest	budapest	PROPN	np00000	_	7	_	_	start_char=35|end_char=43
+9	funge	fungar	VERB	vmip3s0	Mood=Ind|Number=Sing|Person=3|Tense=Pres|VerbForm=Fin	8	_	_	start_char=44|end_char=49
+10	como	como	SCONJ	cs	_	9	_	_	start_char=50|end_char=54
+11	residencia	residencia	NOUN	ncfs000	Gender=Fem|Number=Sing	10	_	_	start_char=55|end_char=65
+12	oficial	oficial	ADJ	aq0cs0	Number=Sing	11	_	_	start_char=66|end_char=73
+13-14	del	_	_	_	_	_	_	_	start_char=74|end_char=77
+13	de	de	ADP	spcms	_	12	_	_	_
+14	el	el	DET	_	Definite=Def|Gender=Masc|Number=Sing|PronType=Art	13	_	_	_
+15	presidente	presidente	NOUN	ncms000	Gender=Masc|Number=Sing	14	_	_	start_char=78|end_char=88
+16	de	de	ADP	sps00	_	15	_	_	start_char=89|end_char=91
+17	Hungría	hungría	PROPN	np00000	_	16	_	_	start_char=92|end_char=99|SpaceAfter=No
+18	?	?	PUNCT	fit	PunctSide=Fin|PunctType=Qest	17	_	_	start_char=99|end_char=100|SpaceAfter=No
+
+# text = ¿Qué país logró clasificar en último lugar a la Eurocopa de 1996 a travé de play-offs
+# sent_id = 0
+1	¿	¿	PUNCT	fia	PunctSide=Ini|PunctType=Qest	0	_	_	start_char=0|end_char=1|SpaceAfter=No
+2	Qué	qué	DET	dt0cn0	PronType=Int	1	_	_	start_char=1|end_char=4
+3	país	país	NOUN	ncms000	Gender=Masc|Number=Sing	2	_	_	start_char=5|end_char=9
+4	logró	lograr	VERB	vmis3s0	Mood=Ind|Number=Sing|Person=3|Tense=Past|VerbForm=Fin	3	_	_	start_char=10|end_char=15
+5	clasificar	clasificar	VERB	vmn0000	VerbForm=Inf	4	_	_	start_char=16|end_char=26
+6	en	en	ADP	sps00	_	5	_	_	start_char=27|end_char=29
+7	último	último	ADJ	ao0ms0	Gender=Masc|NumType=Ord|Number=Sing	6	_	_	start_char=30|end_char=36
+8	lugar	lugar	NOUN	ncms000	Gender=Masc|Number=Sing	7	_	_	start_char=37|end_char=42
+9	a	a	ADP	sps00	_	8	_	_	start_char=43|end_char=44
+10	la	el	DET	da0fs0	Definite=Def|Gender=Fem|Number=Sing|PronType=Art	9	_	_	start_char=45|end_char=47
+11	Eurocopa	Eurocopa	PROPN	np00000	_	10	_	_	start_char=48|end_char=56
+12	de	de	ADP	_	_	11	_	_	start_char=57|end_char=59
+13	1996	1996	NOUN	_	AdvType=Tim	12	_	_	start_char=60|end_char=64
+14	a	a	ADP	sps00	_	13	_	_	start_char=65|end_char=66
+15	travé	travé	NOUN	_	_	14	_	_	start_char=67|end_char=72
+16	de	de	ADP	_	_	15	_	_	start_char=73|end_char=75
+17	play-offs	play-offs	NOUN	ncmp000	Gender=Masc|Number=Plur	16	_	_	start_char=76|end_char=85|SpaceAfter=No
+
+# text = ¿Qué características presentan los miembros de la familia líquenes Cladoniaceae?
+# sent_id = 0
+1	¿	¿	PUNCT	fia	PunctSide=Ini|PunctType=Qest	0	_	_	start_char=0|end_char=1|SpaceAfter=No
+2	Qué	qué	DET	dt0cn0	PronType=Int	1	_	_	start_char=1|end_char=4
+3	características	característica	NOUN	ncfp000	Gender=Fem|Number=Plur	2	_	_	start_char=5|end_char=20
+4	presentan	presentar	VERB	vmip3p0	Mood=Ind|Number=Plur|Person=3|Tense=Pres|VerbForm=Fin	3	_	_	start_char=21|end_char=30
+5	los	el	DET	da0mp0	Definite=Def|Gender=Masc|Number=Plur|PronType=Art	4	_	_	start_char=31|end_char=34
+6	miembros	miembro	NOUN	ncmp000	Gender=Masc|Number=Plur	5	_	_	start_char=35|end_char=43
+7	de	de	ADP	sps00	_	6	_	_	start_char=44|end_char=46
+8	la	el	DET	da0fs0	Definite=Def|Gender=Fem|Number=Sing|PronType=Art	7	_	_	start_char=47|end_char=49
+9	familia	familia	NOUN	ncfs000	Gender=Fem|Number=Sing	8	_	_	start_char=50|end_char=57
+10	líquenes	líquen	ADJ	aq0cp0	Number=Plur	9	_	_	start_char=58|end_char=66
+11	Cladoniaceae	cladoniaceae	PROPN	np00000	_	10	_	_	start_char=67|end_char=79|SpaceAfter=No
+12	?	?	PUNCT	fit	PunctSide=Fin|PunctType=Qest	11	_	_	start_char=79|end_char=80|SpaceAfter=No
+
