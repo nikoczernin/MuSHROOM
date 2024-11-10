@@ -2,9 +2,11 @@
 NLP class task: detecting hallucination spans within the Mu-SHROOM text data
 
 # TODO:
-- do we have labeled training data?
-- lemmatization
-- preprocessing, data quality issues, missing values etc
+-  clean up readme
+-  write up preprocessing steps, workflow and hurdles
+-  write up something about the issue that we dont have labels
+-  write up analysis of what preprocessed data looks like (structure, is there anything weird or anything that might cause issues later?)
+-  reinstall and rerun the repo to make sure it works out of the box
 
 # Notes:
 Used Languages:
@@ -21,11 +23,3 @@ Used Languages:
 
 # Install:
 - pip install -r requirements.txt
-- python -m spacy download en_core_web_sm
-- python -m spacy download fr_core_news_sm
-- python -m spacy download es_core_news_sm
-- python -m spacy download de_core_news_sm
-- python -m spacy download it_core_news_sm
-- python -m spacy download zh_core_web_sm
-- python -m spacy download fi_core_news_sm
-- python -m spacy download sv_core_news_sm
