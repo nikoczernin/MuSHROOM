@@ -65,8 +65,6 @@ Again, you can use ```preprocess.load_data.test_conll_data(path:str)``` to load 
 
 ## References
 
-## References
-
 1. Qi, Peng, Zhang, Yuhao, Zhang, Yuhui, Bolton, Jason, & Manning, Christopher D. 
    **Stanza: A Python Natural Language Processing Toolkit for Many Human Languages**. 
    *Proceedings of the 58th Annual Meeting of the Association for Computational Linguistics: System Demonstrations*, 2020.

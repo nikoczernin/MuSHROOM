@@ -5,7 +5,7 @@ from stanza.utils.conll import CoNLL
 
 
 def read_data_from_folders(data_path: str) -> dict:
-    '''
+    """
     Loads JSON and JSONL data files from subfolders within the specified data path,
     creating DataFrames for 'sample', 'train', and 'val' data.
 
@@ -14,7 +14,7 @@ def read_data_from_folders(data_path: str) -> dict:
 
     Returns:
     - list: A list of DataFrames for 'sample', 'train', and 'val'.
-    '''
+    """
 
     # Dictionary to map folder names to empty DataFrames
     map_folder = {'sample': pd.DataFrame(),
