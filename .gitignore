@@ -163,3 +163,10 @@ cython_debug/
 /data/sample
 /data/val
 /data/train
+
+# notes file
+notes.txt
+# exploration file is optional
+exploration.py
+# ???
+NLP/
