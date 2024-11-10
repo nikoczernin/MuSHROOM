@@ -67,13 +67,10 @@ Again, you can use ```preprocess.load_data.test_conll_data(path:str)``` to load 
 
 ## References
 
-This project uses the [Stanza library](https://stanfordnlp.github.io/stanza/) for natural language processing tasks. 
-If you use this project and Stanza in academic work, please consider citing it as follows:
+1. Qi, Peng, Zhang, Yuhao, Zhang, Yuhui, Bolton, Jason, & Manning, Christopher D. 
+   **Stanza: A Python Natural Language Processing Toolkit for Many Human Languages**. 
+   *Proceedings of the 58th Annual Meeting of the Association for Computational Linguistics: System Demonstrations*, 2020.
 
-```bibtex
-@inproceedings{qi2020stanza,
-    title={Stanza: A {Python} Natural Language Processing Toolkit for Many Human Languages},
-    author={Qi, Peng and Zhang, Yuhao and Zhang, Yuhui and Bolton, Jason and Manning, Christopher D.},
-    booktitle = "Proceedings of the 58th Annual Meeting of the Association for Computational Linguistics: System Demonstrations",
-    year={2020}
-}
+2. Honnibal, Matthew, Montani, Ines, Van Landeghem, Sofie, & Boyd, Adriane.  
+   **spaCy: Industrial-strength Natural Language Processing in Python**. 
+   2020. doi: [10.5281/zenodo.1212303](https://doi.org/10.5281/zenodo.1212303)
