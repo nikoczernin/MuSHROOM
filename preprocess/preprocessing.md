@@ -60,8 +60,15 @@ For example, the model output for the training data will have the following path
 Again, you can use ```preprocess.load_data.test_conll_data(path:str)``` to load and inspect the output.
 
 ## Output of the processing
-... explain the format and characteristics of theprocessed data here ...
-
+The process data is stored in a single ``conllu`` file, which, when read in contains Stanza's ``Document`` object. Within this document are stored the ``Sentence``, ``Entity``, and other similar components of the text in a format that we understand to be essentially a list of dictionaries.
+We found two noteworthy tendencies when analyzing our final outputs. Firstly, when preprocessing contractions, for example "it's", the tool tokenizes it as separate "it" and "'s" tokens, which are then lemmatized as "it" and "be". However, it also leaves in the original "it's" in the token list, it simply does not lemmatize it further. Additionally, the contraction does not get its own ID, instead using a combination of the IDs of its separate parts i.e., if the ID of "it" and "be" are 3 and 4 respectively, then the ID of "it's" would be 3-4. This is unlikely to cause any issues, but we felt it was an important curiosity to highlight.
+On the other hand, the second issue of note could cause some challenges. When dealing with a numbered list, sentences are broken up based on periods in a manner that does not reflect how we would intuitively consider breaking it up. Below is an example list:
+"
+1. First sentence.
+2. Second sentence.
+3. Third sentence.
+"
+This list would be considered six sentences by the tool, with "1.", "2.", and "3." each being their own sentence, along with the text in the list. It might be necessary to handle this issue in the future, depending on how this impacts our further usage, but we would first like to see how the rest of our process interacts with this before making modifications.
 
 ## References
 
