@@ -52,7 +52,7 @@ def test_raw_data():
     print(df_list)
 
 
-def test_conll_data(path):
+def load_conll_data(path):
     docs = CoNLL.conll2doc(path)
     print(docs)
     print("Great success, I like!")
@@ -61,4 +61,4 @@ def test_conll_data(path):
 if __name__ == "__main__":
     pass
     # test_raw_data()
-    test_conll_data(f"../data/output/holistic_outputs/sample_model_input.conllu")
+    load_conll_data(f"../data/output/holistic_outputs/sample_model_input.conllu")

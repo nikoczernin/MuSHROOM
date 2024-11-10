@@ -128,15 +128,6 @@ class Preprocess:
 
 
 
-# Placeholder functions for specific data processing tasks, which can be expanded as needed
-def get_labeled_hallucination_by_index(df: pd.DataFrame) -> pd.DataFrame:
-    pass
-
-
-def get_ngrams_around_hallucinations() -> pd.DataFrame:
-    pass
-
-
 def test():
     """
     A test function to demonstrate the Preprocess class functionality.
@@ -146,19 +137,29 @@ def test():
 
     # Sample text input for preprocessing
     text = [
-        "Es ist die blanke Wahrheit: die FPÖ kann scheißen gehn!",
+        "Es ist die blanke Wahrheit!",
         "But if you ask me, the don't even deserve my hatred!",
-        # "جليقة، التي تعرف الآن باسم كوريا الجنوبية، تتأ",
-        # "सजायाफ्ता कैदियों को टेलीविज़न(टेलीविज़न) सीरीज़ 'जेल में बंद' के  है।...",
-        "420 blaze it!"
+        "सजायाफ्ता कैदियों को टेलीविज़न(टेलीविज़न) सीरीज़ 'जेल में बंद' के  है।...",
     ]
+
+    # Specify the languages of the sample texts
+    # use "auto" for automatic language detection (error prone)
+    languages = [
+        "de",
+        "en",
+        "hi"
+    ]
+
+    while len(languages) < len(text):
+        languages.append("auto")
 
     # Initialize the Preprocess object and update languages if necessary
     preprocessor = Preprocess()
-    preprocessor.update_languages("en")  # Add English pipeline if needed
+    for lang in languages:
+        preprocessor.update_languages(lang)
 
     # Process each line in the text to match the final intended processing method
-    processed = [preprocessor.preprocess(t, "en")[0] for t in text]
+    processed = [preprocessor.preprocess(t, languages[i])[0] for i, t in enumerate(text)]
 
     # Print the processed lemmatized output
     print(type(processed))
