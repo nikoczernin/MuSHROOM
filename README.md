@@ -20,4 +20,4 @@ Used Languages:
 - Swedish
 
 # Install:
-- pip install -r requirements.txt
+- pip install -r requirements.txt (numpy==2 worked on my 2016 Intel Mac)

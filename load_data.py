@@ -4,7 +4,8 @@ import os
 from stanza.utils.conll import CoNLL
 
 
-def read_data_from_folders(data_path: str) -> dict:
+
+def read_original_data_json(data_path: str) -> dict:
     """
     Loads JSON and JSONL data files from subfolders within the specified data path,
     creating DataFrames for 'sample', 'train', and 'val' data.
@@ -47,18 +48,17 @@ def test_raw_data():
     # Define the path to the data directory (assumes it is one level up in '../data')
     DATA_DIR = os.getcwd() + '/../data'
     # Call the function to load data and store DataFrames in df_list
-    df_list = read_data_from_folders(DATA_DIR)
+    df_list = read_original_data_json(DATA_DIR)
     # Print the list of DataFrames to verify the data has loaded correctly
     print(df_list)
 
 
 def load_conll_data(path):
     docs = CoNLL.conll2doc(path)
-    print(docs)
-    print("Great success, I like!")
+    return docs
 
 
 if __name__ == "__main__":
     pass
     # test_raw_data()
-    load_conll_data(f"../data/output/holistic_outputs/sample_model_input.conllu")
+    print(load_conll_data(f"data/output/preprocessing_outputs/sample_model_output_text.conllu"))

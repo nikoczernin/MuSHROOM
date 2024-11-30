@@ -1,12 +1,12 @@
-import pandas as pd
 import stanza
 from stanza.utils.conll import CoNLL
 from stanza.models.common.doc import Document
 from stanza.pipeline.multilingual import MultilingualPipeline
 import os
+import json
 
 # Download required Stanza language models for multilingual processing
-from preprocess.load_data import read_data_from_folders
+from load_data import read_original_data_json
 
 stanza.download(lang="multilingual")  # Download the model for multilingual processing
 
@@ -82,7 +82,7 @@ class Preprocess:
 
 
     @staticmethod
-    def save_processed_text(processed_text, path: str, filename: str):
+    def save_processed_text_conllu(processed_text, path: str, filename: str):
         """
         Saves the processed text in CoNLL format to the specified path.
 
@@ -139,7 +139,7 @@ def test():
     text = [
         "Es ist die blanke Wahrheit!",
         "But if you ask me, the don't even deserve my hatred!",
-        "सजायाफ्ता कैदियों को टेलीविज़न(टेलीविज़न) सीरीज़ 'जेल में बंद' के  है।...",
+        #"सजायाफ्ता कैदियों को टेलीविज़न(टेलीविज़न) सीरीज़ 'जेल में बंद' के  है।...",
     ]
 
     # Specify the languages of the sample texts
@@ -168,7 +168,7 @@ def test():
     # Save the processed output in CoNLL format
     test_path = "../data/output/test"
     test_filename = "test.conllu"
-    preprocessor.save_processed_text(processed, test_path, test_filename)
+    preprocessor.save_processed_text_conllu(processed, test_path, test_filename)
 
     # Load the saved CoNLL file to verify the saving process
     docs = CoNLL.conll2doc(f"{test_path}/{test_filename}")
@@ -176,14 +176,14 @@ def test():
     print("Great success, I like!")
 
 
-def preprocess_project():
+def preprocess_project_milestone1(sample=True, train=True, val=True):
     # Define the path to the data directory
     # os.getcwd() returns the current working directory; adding '/data' to it specifies the data folder
-    DATA_DIR = os.getcwd() + '/data'
+    DATA_DIR = os.getcwd() + '/../data'
 
     # Load data from 'sample', 'train', and 'validation' folders as a dictionary
     # The dictionary keys are the folder names, and values are the DataFrames with the data
-    dataDict = read_data_from_folders(DATA_DIR)
+    dataDict = read_original_data_json(DATA_DIR)
 
     # Create an instance of the Preprocess class to handle text processing operations
     preprocessor = Preprocess()
@@ -212,7 +212,7 @@ def preprocess_project():
             preprocessor.update_languages(langs)
 
             # Define the folder name for saving processed text output
-            foldername = f"preprocessing_outputs"
+            output_foldername = f"preprocessing_outputs"
 
             # Initialize an empty list to store processed data for this column
             processed_data = []
@@ -235,10 +235,94 @@ def preprocess_project():
 
             # After processing all rows in the column, save the processed text in CoNLL format
             # Each dataset and column is saved as a separate file in <foldername>
-            Preprocess.save_processed_text(processed_data, f"data/output/{foldername}", f"{df_name}_{col}.conllu")
+            Preprocess.save_processed_text_conllu(processed_data, f"data/output/{output_foldername}", f"{df_name}_{col}.conllu")
+
+
+def get_attribute(x, attribute):
+    """
+    Get the attribute from a dictionary if it exists, else return None.
+
+    Parameters:
+    - x (dict): The dictionary to extract the attribute from.
+    - attribute (str): The attribute to extract from the dictionary.
+
+    Returns:
+    - Any: The value of the attribute if it exists, else None.
+    """
+    return getattr(x, attribute, None)
+
+def preprocess_project(sample=True, train=True, val=True):
+    # Define the path to the data directory
+    # os.getcwd() returns the current working directory; adding '/data' to it specifies the data folder
+    DATA_DIR = os.getcwd() + '/../data'
+
+    # Load data from 'sample', 'train', and 'validation' folders as a dictionary
+    # The dictionary keys are the folder names, and values are the DataFrames with the data
+    dataDict = read_original_data_json(DATA_DIR)
+
+    # Create an instance of the Preprocess class to handle text processing operations
+    preprocessor = Preprocess()
+
+    df_names = []
+    if sample: df_names.append("sample")
+    if train: df_names.append("train")
+    if val: df_names.append("val")
+
+    # Define the folder name for saving processed text output
+    output_foldername = f"preprocessing_outputs"
+
+    # Loop over each DataFrame and each row to preprocess text data
+    for df_name, df in dataDict.items():
+        # define a list of all observations, each being a dictionary
+        # we then save each list of observations as a json file
+        all_observations = []
+
+
+        print("Processing", df_name)
+
+        # Update the preprocessor to include languages in 'langs' (download models if missing)
+        langs = df["lang"]
+        print(f"All detected languages in this dataset: {list(set(df['lang']))}")
+        preprocessor.update_languages(langs)
+
+        # Iterate over each row to process text with language-specific handling
+        # This is especially necessary because some languages (e.g., Hindi) might require special handling
+        for row in df.itertuples():
+            # itertuples() yields rows as row objects
+            # get the attributes from the row object
+            i = get_attribute(row, "Index")
+            model_input = get_attribute(row, "model_input")
+            model_output_text = get_attribute(row, "model_output_text")
+            lang = get_attribute(row, "lang")
+            hard_labels = get_attribute(row, "hard_labels")
+
+            print(i)
+
+            # Process the text using the Preprocess class, which might unpack it if necessary
+            # This processing is row-by-row because some languages could trip up a bulk pipeline
+            print(f"\tProcessing input: ({lang}) \"{model_input[:100]} ...\"")
+            model_input_processed = preprocessor.preprocess(model_input, lang)[0].to_dict()
+            print(f"\tProcessing output: ({lang}) \"{model_output_text[:100]} ...\"")
+            model_output_text_processed = preprocessor.preprocess(model_output_text, lang)[0].to_dict()
+
+            # Append the processed data and all wanted attributes to our list for later saving
+            all_observations.append({
+                # original data
+                "model_input": model_input,
+                "model_output_text": model_output_text,
+                # processed data
+                "model_input_processed": model_input_processed,
+                "model_output_text_processed": model_output_text_processed,
+                "lang": lang,
+                "hard_labels": hard_labels,
+            })
+
+        # After processing all rows in the column, save the processed text in JSON format
+        with open(f"../data/output/{output_foldername}/{df_name}_preprocessed.json", "w") as f:
+            json.dump(all_observations, f)
 
 
 # Run the test function if the script is executed directly
 if __name__ == "__main__":
-    test()
-    # preprocess_project()
+    # test()
+    preprocess_project(sample=True, train=False, val=False)
