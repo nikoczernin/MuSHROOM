@@ -251,6 +251,41 @@ def get_attribute(x, attribute):
     """
     return getattr(x, attribute, None)
 
+
+def hard_labels_char_to_word(hard_labels, text):
+    # Algorithm
+    # 1. Split the text into words, separated by whitespace
+    text_list = text.strip().split(" ")
+    # 2. Split the subset of the text into words, separated by whitespace
+    # this is a list of lists, each with a group of spans
+    # the hard labels are shifted right by 1 so subtract 1
+    text_subsets = [text[left-1:right-1] for left, right in hard_labels]
+    text_subset_lists = [subset.split(" ") for subset in text_subsets]
+    text_subset_lengths = [len(subset) for subset in text_subset_lists]
+    # Hopefully, the latter should be exactly contained in the former
+    # confirm this here
+    # for i, text_subset_list in enumerate(text_subset_lists):
+    #     # check if the subset is contained in the text
+    #     if text_subset_list not in text_list:
+    #         print(f"Subset {text_subset_list} not found in text {text_list}")
+    #         # if not, find the index of the first word in the subset
+    #         # then find the index of the last word in the subset
+    #         # then return the indices as a tuple
+    #         first_word_index = text_list.index(text_subset_list[0])
+    #         last_word_index = text_list.index(text_subset_list[-1])
+    #         hard_labels[i] = (first_word_index, last_word_index)
+    # 3. Find the indices of the words in the subset in the text
+    # the subset list begins after the number of whitespaces before it
+    # that is the beginnings of the hard labels of the word list
+    starts_of_subset = [text.index(subset) for subset in text_subsets]
+    starts_of_hard_labels_words = [text[:start].count(" ") for start in starts_of_subset]
+    # the end of the hard labels is the start of the hard labels plus the length of the subset
+    ends_of_hard_labels_words = [start + length for start, length in zip(starts_of_hard_labels_words, text_subset_lengths)]
+    # 4. Return the indices as a tuple and the text, joined back together
+    hard_labels_words = [(count, end-1) for count, end in zip(starts_of_hard_labels_words, ends_of_hard_labels_words)]
+    return hard_labels_words, " ".join(text_list)
+
+
 def preprocess_project(sample=True, train=True, val=True):
     # Define the path to the data directory
     # os.getcwd() returns the current working directory; adding '/data' to it specifies the data folder
@@ -277,6 +312,8 @@ def preprocess_project(sample=True, train=True, val=True):
         # we then save each list of observations as a json file
         all_observations = []
 
+        # this line skips dataframes if they are false in the function parameters
+        if df_name not in df_names: continue
 
         print("Processing", df_name)
 
@@ -291,18 +328,24 @@ def preprocess_project(sample=True, train=True, val=True):
             # itertuples() yields rows as row objects
             # get the attributes from the row object
             i = get_attribute(row, "Index")
-            model_input = get_attribute(row, "model_input")
-            model_output_text = get_attribute(row, "model_output_text")
+            model_input = get_attribute(row, "model_input").strip()
+            model_output_text = get_attribute(row, "model_output_text").strip()
             lang = get_attribute(row, "lang")
             hard_labels = get_attribute(row, "hard_labels")
 
-            print(i)
+            # the hard labels correspond with character indices of the model_output_text
+            # before lemmitization, we need to convert these indices to word indices
+            # as we are interested in the nth word in the sentence that is a hallucination, not the nth character
+            # Approach: hard_labels_char_to_word()
+            if hard_labels is not None:
+                hard_labels, model_output_text = hard_labels_char_to_word(hard_labels, model_output_text)
+
 
             # Process the text using the Preprocess class, which might unpack it if necessary
             # This processing is row-by-row because some languages could trip up a bulk pipeline
-            print(f"\tProcessing input: ({lang}) \"{model_input[:100]} ...\"")
+            # print(f"\tProcessing input: ({lang}) \"{model_input[:100]} ...\"")
             model_input_processed = preprocessor.preprocess(model_input, lang)[0].to_dict()
-            print(f"\tProcessing output: ({lang}) \"{model_output_text[:100]} ...\"")
+            # print(f"\tProcessing output: ({lang}) \"{model_output_text[:100000]} ...\"")
             model_output_text_processed = preprocessor.preprocess(model_output_text, lang)[0].to_dict()
 
             # Append the processed data and all wanted attributes to our list for later saving
@@ -324,5 +367,10 @@ def preprocess_project(sample=True, train=True, val=True):
 
 # Run the test function if the script is executed directly
 if __name__ == "__main__":
-    test()
-    # preprocess_project(sample=True, train=True, val=True)
+    # test()
+    preprocess_project(sample=True, train=True, val=True)
+    # preprocess_project(sample=True, train=False, val=False)
+    print("Great success, I like!")
+
+    # x = "The restoration of Sándor Palace, also known as the Buda Castle, was completed in several phases"
+    # print(x[49:54])

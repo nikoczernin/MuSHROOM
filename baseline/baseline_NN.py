@@ -22,7 +22,7 @@ print("hi")
 with open('../data/output/preprocessing_outputs/sample_preprocessed.json') as f:
     samplep = json.load(f)
 
-pprint(samplep[2])
+# pprint(samplep[2])
 # df = pandas.read_json([samplep])
 
 
@@ -86,5 +86,28 @@ def get_lemmas_from_stanza_list(stanza_list, split_ngrams=True, skip_punct=False
     return lemmas
 
 
-print(samplep[0]["model_output_text_processed"])
-print(get_lemmas_from_stanza_list(samplep[0]["model_output_text_processed"], skip_punct=True))
+# TODO: find out if the lemma tokens returned form our processed data and the function above are the same
+#  as in the original sample data
+
+sandor = samplep[0]
+sandor_labels = sandor["hard_labels"]
+print(sandor_labels)
+
+# TODO: the issue lies within the hard labels, they are character indices of the original text
+# not word indices
+# we need to convert them to word indices
+
+# get both texts
+sandor_lemmas = get_lemmas_from_stanza_list(sandor["model_output_text_processed"], skip_punct=False, split_ngrams=True)
+sandor_original = sandor["model_output_text"]
+print("Lemmas:", sandor_lemmas)
+print("Original:", sandor_original)
+print("length original:", len(sandor_original))
+
+# now for each sequence of hard labels, print the corresponding texts of both datasets
+for label_pair in sandor_labels:
+    start = label_pair[0]
+    end = label_pair[1]
+    print(" ".join(sandor_lemmas[start:end+1]))
+    print(sandor["model_output_text"][start:end+1])
+    print("####")
