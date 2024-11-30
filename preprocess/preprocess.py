@@ -5,8 +5,11 @@ from stanza.models.common.doc import Document
 from stanza.pipeline.multilingual import MultilingualPipeline
 import os
 
-# Download required Stanza language models for multilingual processing
-from preprocess.load_data import read_data_from_folders
+try:
+    # Download required Stanza language models for multilingual processing
+    from preprocess.load_data import read_data_from_folders
+except:
+    print("Stanza package download failed in preprocess pipeline imports!")
 
 stanza.download(lang="multilingual")  # Download the model for multilingual processing
 
@@ -31,7 +34,6 @@ class Preprocess:
             "auto": MultilingualPipeline(processors='tokenize,lemma,pos')
         }
 
-
     def update_languages(self, langs):
         """
         Adds a language model for each specified language if it has not already been downloaded.
@@ -50,7 +52,6 @@ class Preprocess:
                 stanza.download(lang)  # Download the language model for Stanza
                 # Add a new pipeline for this language with specific processors
                 self.PIPELINES[lang] = stanza.Pipeline(lang, processors='tokenize,lemma,pos')
-
 
     def preprocess(self, docs: list, lang="auto"):
         """
@@ -80,7 +81,6 @@ class Preprocess:
 
         return processed_text
 
-
     @staticmethod
     def save_processed_text(processed_text, path: str, filename: str):
         """
@@ -108,7 +108,6 @@ class Preprocess:
 
         print("\tSaving successful!")
 
-
     @staticmethod
     def print(processed_text, max_lines=None):
         """
@@ -125,7 +124,6 @@ class Preprocess:
                 for word in sentence.words:
                     print(word.lemma, end=" ")  # Print each lemmatized word with a space separator
                 print()  # New line after each sentence
-
 
 
 def test():
@@ -238,7 +236,32 @@ def preprocess_project():
             Preprocess.save_processed_text(processed_data, f"data/output/{foldername}", f"{df_name}_{col}.conllu")
 
 
+def read_conllu(file_path: str) -> list:
+    sentences = []
+    sentence = []
+
+    with open(file_path, 'r', encoding='utf-8') as file:
+        for line in file:
+            line = line.strip()
+            if line.startswith("#"):
+                continue
+            elif not line:
+                if sentence:
+                    sentences.append(sentence)
+                    sentence = []
+            else:
+                parts = line.split("\t")
+                if '-' in parts[0]:    # Is this OK?????
+                    continue
+                sentence.append(parts)
+
+    if sentence:
+        sentences.append(sentence)
+
+    return sentences
+
 # Run the test function if the script is executed directly
 if __name__ == "__main__":
+    conllu = read_conllu(r'C:\DS\repos\MuSHROOM\data\output\preprocessing_outputs\test.conllu')
     test()
     # preprocess_project()
