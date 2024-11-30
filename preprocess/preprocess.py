@@ -265,8 +265,8 @@ def preprocess_project(sample=True, train=True, val=True):
 
     df_names = []
     if sample: df_names.append("sample")
-    if train: df_names.append("train")
     if val: df_names.append("val")
+    if train: df_names.append("train")
 
     # Define the folder name for saving processed text output
     output_foldername = f"preprocessing_outputs"
@@ -324,5 +324,5 @@ def preprocess_project(sample=True, train=True, val=True):
 
 # Run the test function if the script is executed directly
 if __name__ == "__main__":
-    # test()
-    preprocess_project(sample=True, train=False, val=False)
+    test()
+    # preprocess_project(sample=True, train=True, val=True)
