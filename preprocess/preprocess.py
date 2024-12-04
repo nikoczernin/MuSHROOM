@@ -368,7 +368,7 @@ def preprocess_project(sample=True, train=True, val=True):
 # Run the test function if the script is executed directly
 if __name__ == "__main__":
     # test()
-    preprocess_project(sample=True, train=True, val=True)
+    preprocess_project(sample=True, train=False, val=False)
     # preprocess_project(sample=True, train=False, val=False)
     print("Great success, I like!")
 
