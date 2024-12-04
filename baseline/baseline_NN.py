@@ -24,69 +24,37 @@ with open('../data/output/preprocessing_outputs/sample_preprocessed.json') as f:
     sample = json.load(f)
 
 
-# TODO: we now have a list of objects. Now Create a long dataset with 1 reponse token per row
-# iterate over the data.model_output_text_lemmas and get a object with the lemma, upos, xpos and a binary label
+
 long_data = []
-
-# TODO: also before that, check whether the lemmas list is still corresponding with the processed text hard labels!
 for obj in sample:
-    # complete the hard labels
-    # they are currently a list of lists of spans, we need a list of indices instead
-    obj["labels_complete"] = [list(range(left, right+1)) for left, right in obj["hard_labels"]]
-
-    # Stanza preprocessing saved punctuation as its own tokens
-    # the hard labelling we did ignored punctuation, so we need to remove them at this point
-    obj["model_output_text_processed"] = [token for token in obj["model_output_text_processed"] if token["upos"] != "PUNCT"]
-
     # now create a new object for each preprocessing mode output token and append it to the long_data list
     # we iterate over the processed token objects, with the iterating number being i
     # the ith token should correspond with the ith label
-    for i, token in enumerate(obj["model_output_text_processed"]):
-        long_data.append({
-            "lemma": token["lemma"],
-            "upos": token["upos"],
-            "xpos": token["xpos"],
-            "label": 1 if i in obj["labels_complete"] else 0
-        })
+    # TODO: should we use the full original query or a concatenated version of its lemmas?
+    query = obj.get("model_input")
+    for sentence in obj["model_output_text_processed"]:
+        for token in sentence:
+            lemma = token.get("lemma")
+            upos = token.get("upos")
+            xpos = token.get("xpos")
+            label = token.get("hallucination")
+            long_data.append({
+                "query": query,
+                "lemma": lemma,
+                "upos": upos,
+                "xpos": xpos,
+                "label": int(label) if label is not None else 0
+            })
 
 
+# [CLS] query [SEP] a single token from the answer [SEP] UPOS: the upos of the token, XPOS: the xpos of the token [SEP]
+features = [f"[CLS] {obj.get('query')} [SEP] {obj.get('lemma')} [SEP] UPOS: {obj.get('upos')} [SEP] {obj.get('xpos')}" for obj in long_data]
+labels = [obj.get('label') for obj in long_data]
+
+if len(features) != len(labels):
+    raise Exception("The number of features and labels do not match!")
 
 
-def annotate_response_tokens(response, hallucinations):
-    """
-    Annotate response tokens with hallucination labels.
-    Args:
-        response: List of token dictionaries (response).
-        hallucinations: List of token index ranges indicating hallucinated spans.
-    Returns:
-        List of dictionaries containing token features and labels.
-    """
-    # Flatten hallucination ranges into a set for quick lookup
-    hallucination_ids = set()
-    for start, end in hallucinations:
-        hallucination_ids.update(range(start + 1, end + 2))
-
-    # Annotate tokens
-    annotated_data = []
-    for token in response:
-        token_id = token['id']
-        if isinstance(token_id, list):
-            print(token_id)
-            continue # this excludes where id is made up of multiple tokens (for example: it's) since the next tokens include it anyway
-        label = 1 if token_id in hallucination_ids else 0
-        annotated_data.append({
-            'features': {
-                'lemma': token['lemma'],
-                'upos': token['upos'],
-                'xpos': token['xpos']
-                # Do we need more features?
-            },
-            'label': label
-        })
-    return annotated_data
-
-responses = [token for sentence in sandor['model_output_text_processed'] for token in sentence]
-annot = annotate_response_tokens(responses, sandor['hard_labels'])
 
 
 ########################
@@ -94,40 +62,23 @@ annot = annotate_response_tokens(responses, sandor['hard_labels'])
 
 
 # Initialize label encoders for each feature
-lemma_encoder = LabelEncoder()
-upos_encoder = LabelEncoder()
-xpos_encoder = LabelEncoder()
-
-# Collect all the lemmas, upos, and xpos for encoding
-lemmas = [item['features']['lemma'] for item in annot]
-uposes = [item['features']['upos'] for item in annot]
-xposes = [item['features']['xpos'] for item in annot]
-
-# Fit the encoders
-lemma_encoder.fit(lemmas)
-upos_encoder.fit(uposes)
-xpos_encoder.fit(xposes)
+features_encoder = LabelEncoder()
+# Fit the encoder
+features_encoder.fit(features)
 
 # Prepare the data for training
-X = []
-y = []
-
-for item in annot:
-    lemma_encoded = lemma_encoder.transform([item['features']['lemma']])[0]
-    upos_encoded = upos_encoder.transform([item['features']['upos']])[0]
-    xpos_encoded = xpos_encoder.transform([item['features']['xpos']])[0]
-
-    # Create a feature vector (lemmas, upos, xpos) for each token
-    feature_vector = [lemma_encoded, upos_encoded, xpos_encoded]
-    X.append(feature_vector)
-    y.append(item['label'])
+X = [features_encoder.transform(f) for f in features]
+y = labels
 
 # Convert to numpy arrays for training
 X = np.array(X)
 y = np.array(y)
-print(X.shape)
-print(y.shape)
 
+print(X.shape)
+print(X)
+
+print(y.shape)
+print(y)
 raise hell
 
 

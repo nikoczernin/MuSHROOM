@@ -239,54 +239,6 @@ def preprocess_project_milestone1(sample=True, train=True, val=True):
             Preprocess.save_processed_text_conllu(processed_data, f"data/output/{output_foldername}", f"{df_name}_{col}.conllu")
 
 
-def get_attribute(x, attribute):
-    """
-    Get the attribute from a dictionary if it exists, else return None.
-
-    Parameters:
-    - x (dict): The dictionary to extract the attribute from.
-    - attribute (str): The attribute to extract from the dictionary.
-
-    Returns:
-    - Any: The value of the attribute if it exists, else None.
-    """
-    return getattr(x, attribute, None)
-
-
-def hard_labels_char_to_word(hard_labels, text):
-    # Algorithm
-    # 1. Split the text into words, separated by whitespace
-    text_list = text.strip().split(" ")
-    # 2. Split the subset of the text into words, separated by whitespace
-    # this is a list of lists, each with a group of spans
-    # the hard labels are shifted right by 1 so subtract 1
-    text_subsets = [text[left-1:right-1] for left, right in hard_labels]
-    text_subset_lists = [subset.split(" ") for subset in text_subsets]
-    text_subset_lengths = [len(subset) for subset in text_subset_lists]
-    # Hopefully, the latter should be exactly contained in the former
-    # confirm this here
-    # for i, text_subset_list in enumerate(text_subset_lists):
-    #     # check if the subset is contained in the text
-    #     if text_subset_list not in text_list:
-    #         print(f"Subset {text_subset_list} not found in text {text_list}")
-    #         # if not, find the index of the first word in the subset
-    #         # then find the index of the last word in the subset
-    #         # then return the indices as a tuple
-    #         first_word_index = text_list.index(text_subset_list[0])
-    #         last_word_index = text_list.index(text_subset_list[-1])
-    #         hard_labels[i] = (first_word_index, last_word_index)
-    # 3. Find the indices of the words in the subset in the text
-    # the subset list begins after the number of whitespaces before it
-    # that is the beginnings of the hard labels of the word list
-    starts_of_subset = [text.index(subset) for subset in text_subsets]
-    starts_of_hard_labels_words = [text[:start].count(" ") for start in starts_of_subset]
-    # the end of the hard labels is the start of the hard labels plus the length of the subset
-    ends_of_hard_labels_words = [start + length for start, length in zip(starts_of_hard_labels_words, text_subset_lengths)]
-    # 4. Return the indices as a tuple and the text, joined back together
-    hard_labels_words = [(count, end-1) for count, end in zip(starts_of_hard_labels_words, ends_of_hard_labels_words)]
-    return hard_labels_words, " ".join(text_list)
-
-
 def preprocess_project(sample=True, train=True, val=True):
     # Define the path to the data directory
     # os.getcwd() returns the current working directory; adding '/data' to it specifies the data folder
@@ -328,11 +280,11 @@ def preprocess_project(sample=True, train=True, val=True):
         for row in df.itertuples():
             # itertuples() yields rows as row objects
             # get the attributes from the row object
-            i = get_attribute(row, "Index")
-            model_input = get_attribute(row, "model_input").strip()
-            model_output_text = get_attribute(row, "model_output_text").strip()
-            lang = get_attribute(row, "lang")
-            hard_labels = get_attribute(row, "hard_labels")
+            i = getattr(row, "Index")
+            model_input = getattr(row, "model_input").strip()
+            model_output_text = getattr(row, "model_output_text").strip()
+            lang = getattr(row, "lang")
+            hard_labels = getattr(row, "hard_labels")
 
             # Process the text using the Preprocess class, which might unpack it if necessary
             # This processing is row-by-row because some languages could trip up a bulk pipeline
@@ -356,6 +308,7 @@ def preprocess_project(sample=True, train=True, val=True):
                                     break
                                 else:
                                     token["hallucination"] = False
+
 
             # Append the processed data and all wanted attributes to our list for later saving
             all_observations.append({
