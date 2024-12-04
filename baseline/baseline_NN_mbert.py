@@ -108,13 +108,16 @@ print("Dataset and dataloader created!")
 # Define optimizer and loss function
 optimizer = AdamW(model.parameters(), lr=2e-5)
 loss_fn = CrossEntropyLoss()
-
+print("Optimizer and loss function defined!")
 # Set device
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(f"Device: {device}")
 model.to(device)
+print("Model moved to device!")
 
 # Step 5: Training loop
 model.train()
+print("Training started!")
 for epoch in range(3):  # Number of epochs
     total_loss = 0
     for batch in dataloader:
@@ -135,7 +138,8 @@ for epoch in range(3):  # Number of epochs
         total_loss += loss.item()
 
     print(f"Epoch {epoch + 1}, Loss: {total_loss / len(dataloader)}")
-
+print("Training complete!")
 # Step 6: Save the model
 model.save_pretrained("mbert_token_classifier")
 tokenizer.save_pretrained("mbert_token_classifier")
+print("Model and tokenizer saved!")
