@@ -4,6 +4,7 @@ from stanza.models.common.doc import Document
 from stanza.pipeline.multilingual import MultilingualPipeline
 import os
 import json
+from pprint import pprint
 
 # Download required Stanza language models for multilingual processing
 from load_data import read_original_data_json
@@ -333,20 +334,25 @@ def preprocess_project(sample=True, train=True, val=True):
             lang = get_attribute(row, "lang")
             hard_labels = get_attribute(row, "hard_labels")
 
-            # the hard labels correspond with character indices of the model_output_text
-            # before lemmitization, we need to convert these indices to word indices
-            # as we are interested in the nth word in the sentence that is a hallucination, not the nth character
-            # Approach: hard_labels_char_to_word()
-            if hard_labels is not None:
-                hard_labels, model_output_text = hard_labels_char_to_word(hard_labels, model_output_text)
-
-
             # Process the text using the Preprocess class, which might unpack it if necessary
             # This processing is row-by-row because some languages could trip up a bulk pipeline
             # print(f"\tProcessing input: ({lang}) \"{model_input[:100]} ...\"")
             model_input_processed = preprocessor.preprocess(model_input, lang)[0].to_dict()
             # print(f"\tProcessing output: ({lang}) \"{model_output_text[:100000]} ...\"")
             model_output_text_processed = preprocessor.preprocess(model_output_text, lang)[0].to_dict()
+
+            # the hard labels correspond with character indices of the model_output_text
+            # the Stanza preprocessing saves the original word starting and ending character indices
+            # these we can compare with the character index hard labels to check if it is a hallucination
+            # we do that here to save the hard label of each token in the preprocessed data
+            for sentence in model_output_text_processed:
+                for token in sentence:
+                    for left, right in hard_labels:
+                        if left <= token["start_char"] <= right:
+                            token["hallucination"] = True
+                            break
+                        else:
+                            token["hallucination"] = False
 
             # Append the processed data and all wanted attributes to our list for later saving
             all_observations.append({

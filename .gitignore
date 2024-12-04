@@ -163,6 +163,7 @@ cython_debug/
 /data/sample
 /data/val
 /data/train
+/data/output/preprocessing_outputs
 
 # notes file
 notes.txt
