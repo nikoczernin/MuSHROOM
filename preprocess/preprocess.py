@@ -345,14 +345,17 @@ def preprocess_project(sample=True, train=True, val=True):
             # the Stanza preprocessing saves the original word starting and ending character indices
             # these we can compare with the character index hard labels to check if it is a hallucination
             # we do that here to save the hard label of each token in the preprocessed data
-            for sentence in model_output_text_processed:
-                for token in sentence:
-                    for left, right in hard_labels:
-                        if left <= token["start_char"] <= right:
-                            token["hallucination"] = True
-                            break
-                        else:
-                            token["hallucination"] = False
+            if hard_labels is not None:
+                for sentence in model_output_text_processed:
+                    for token in sentence:
+                        # not all token objects have the start_char and end_char attributes, the others you can skip
+                        if "start_char" in token.keys():
+                            for left, right in hard_labels:
+                                if left <= token["start_char"] <= right:
+                                    token["hallucination"] = True
+                                    break
+                                else:
+                                    token["hallucination"] = False
 
             # Append the processed data and all wanted attributes to our list for later saving
             all_observations.append({
