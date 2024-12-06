@@ -52,21 +52,64 @@ def get_data_for_training():
     return features, labels
 
 
-@timer
-def encode_features(features, labels):
-    features_encoder = LabelEncoder()
-    features_encoder.fit(features)
+def parse_feature(feature):
+    """
+    Parses a feature string into its components: query, word, UPOS, and XPOS.
 
-    X = [features_encoder.transform(f) for f in features]
-    y = labels
-    return np.array(X), np.array(y)
+    Parameters:
+        feature (str): Input string in the structured format.
+
+    Returns:
+        tuple: Parsed components (query, word, UPOS, XPOS).
+    """
+    parts = feature.split(" [SEP] ")
+    query = parts[0].replace("[CLS] ", "").strip()
+    word = parts[1].strip()
+    upos = parts[2].replace("UPOS: ", "").strip()
+    xpos = parts[3].strip()
+    return query, word, upos, xpos
+
+
+@timer
+def encode_features(features):
+    """
+    Encodes features into numeric values by processing their components.
+
+    Parameters:
+        features (list of str): List of features in structured format.
+
+    Returns:
+        np.ndarray: Encoded features as numeric values.
+    """
+    queries, words, upos_list, xpos_list = [], [], [], []
+
+    for feature in features:
+        query, word, upos, xpos = parse_feature(feature)
+        queries.append(query)
+        words.append(word)
+        upos_list.append(upos)
+        xpos_list.append(xpos)
+
+    query_encoder = LabelEncoder()
+    word_encoder = LabelEncoder()
+    upos_encoder = LabelEncoder()
+    xpos_encoder = LabelEncoder()
+
+    query_encoded = query_encoder.fit_transform(queries)
+    word_encoded = word_encoder.fit_transform(words)
+    upos_encoded = upos_encoder.fit_transform(upos_list)
+    xpos_encoded = xpos_encoder.fit_transform(xpos_list)
+
+    encoded_features = np.stack((query_encoded, word_encoded, upos_encoded, xpos_encoded), axis=1)
+    return encoded_features
 
 
 @timer
 def main(input_dim: int = 3, hidden_dim1: int = 64, hidden_dim2: int = 32, output_dim: int = 2):
     features, labels = get_data_for_training()
 
-    X, y = encode_features(features, labels)
+    X = encode_features(features)
+    y = np.array(labels)
 
     X_tensor = torch.tensor(X, dtype=torch.float32)
     y_tensor = torch.tensor(y, dtype=torch.long)
