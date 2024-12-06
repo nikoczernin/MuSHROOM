@@ -25,12 +25,12 @@ spans=[]
 
 for i in range(len(data)):
     completion = client.chat.completions.create(
-        model="gpt-4o", 
+        model="gpt-4o-mini", 
         messages=[
             {"role": "system", "content": "You are an assistant tasked with finding errors in responses."},
             {
                 "role": "user",
-                "content": f'The question was "{data[i]['model_input']}", and the response was "{data[i]['model_output_text']}". Identify the parts of the answer that are incorrect or unsupported by the question. Answer with only the hallucinated spans as a list of token ranges (start and end indices), like in this example: "[(0,3),(8,20)]".'
+                "content": f'The question was "{data[i]['model_input']}", and the response was "{data[i]['model_output_text']}". Identify the parts of the answer that are incorrect or unsupported by the question. Answer with only the incorrect spans in the answer as a list of token ranges (start and end indices), like in this example: "[(0,3),(8,20)]".'
             }
         ]
     )
