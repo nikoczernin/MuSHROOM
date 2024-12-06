@@ -126,24 +126,21 @@ def evaluate_model(model, X_test, y_test):
     Returns:
         None
     """
-    model.eval()  # Set model to evaluation mode
+    model.eval()
 
     with torch.no_grad():
-        outputs = model(X_test)  # Forward pass
-        _, predictions = torch.max(outputs, 1)  # Get class predictions
+        outputs = model(X_test)
+        _, predictions = torch.max(outputs, 1)
 
-    # Convert predictions and labels to NumPy arrays
     y_pred = predictions.numpy()
     y_true = y_test.numpy()
 
-    # Calculate metrics
     accuracy = accuracy_score(y_true, y_pred)
     precision = precision_score(y_true, y_pred, average='weighted')
     recall = recall_score(y_true, y_pred, average='weighted')
     f1 = f1_score(y_true, y_pred, average='weighted')
     conf_matrix = confusion_matrix(y_true, y_pred)
 
-    # Print metrics
     print("Evaluation Metrics:")
     print(f"Accuracy: {accuracy:.4f}")
     print(f"Precision: {precision:.4f}")
