@@ -4,9 +4,10 @@ import numpy as np
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
 import torch.optim as optim
+import torch.nn as nn
 
 from preprocess.preprocess import timer
-from baseline.baseline_models import HallucinationModel
+from baseline.baseline_models import HallucinationBaselineNN
 
 import warnings
 warnings.filterwarnings('ignore')  # "error", "ignore", "always", "default", "module" or "once"
@@ -105,6 +106,57 @@ def encode_features(features):
 
 
 @timer
+def train_model(X_tensor, y_tensor, input_dim, hidden_dim1, hidden_dim2, output_dim, num_epochs=10, batch_size=32, learning_rate=0.001):
+    # Train-test split
+    X_train, X_val, y_train, y_val = train_test_split(X_tensor, y_tensor, test_size=0.2, random_state=42)
+
+    # Model, Loss, Optimizer
+    model = HallucinationBaselineNN(input_dim, hidden_dim1, hidden_dim2, output_dim)
+    criterion = nn.CrossEntropyLoss()  # Suitable for multi-class classification
+    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+
+    # DataLoader for batching
+    train_dataset = torch.utils.data.TensorDataset(X_train, y_train)
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+
+    val_dataset = torch.utils.data.TensorDataset(X_val, y_val)
+    val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
+
+    # Training loop
+    for epoch in range(num_epochs):
+        model.train()
+        train_loss = 0.0
+
+        for batch_X, batch_y in train_loader:
+            optimizer.zero_grad()
+            outputs = model(batch_X)
+            loss = criterion(outputs, batch_y)
+            loss.backward()
+            optimizer.step()
+            train_loss += loss.item()
+
+        # Validation
+        model.eval()
+        val_loss = 0.0
+        correct = 0
+        total = 0
+
+        with torch.no_grad():
+            for batch_X, batch_y in val_loader:
+                outputs = model(batch_X)
+                loss = criterion(outputs, batch_y)
+                val_loss += loss.item()
+                _, predicted = torch.max(outputs, 1)
+                correct += (predicted == batch_y).sum().item()
+                total += batch_y.size(0)
+
+        val_accuracy = correct / total
+        print(f"Epoch [{epoch + 1}/{num_epochs}], Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}, Val Accuracy: {val_accuracy:.4f}")
+
+    return model
+
+
+@timer
 def main(input_dim: int = 3, hidden_dim1: int = 64, hidden_dim2: int = 32, output_dim: int = 2):
     features, labels = get_data_for_training()
 
@@ -114,35 +166,16 @@ def main(input_dim: int = 3, hidden_dim1: int = 64, hidden_dim2: int = 32, outpu
     X_tensor = torch.tensor(X, dtype=torch.float32)
     y_tensor = torch.tensor(y, dtype=torch.long)
 
-    X_train, X_val, y_train, y_val = train_test_split(X_tensor, y_tensor, test_size=0.2, random_state=42)
-
-    model = HallucinationModel(input_dim, hidden_dim1, hidden_dim2, output_dim)
-
-    print(model)
-
-    criterion = torch.nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=0.001)
-
-    num_epochs = 10
-    batch_size = 32
-
-    for epoch in range(num_epochs):
-        model.train()
-        optimizer.zero_grad()
-        outputs = model(X_train)
-        loss = criterion(outputs, y_train)
-        loss.backward()
-        optimizer.step()
-        if (epoch + 1) % 1 == 0:
-            print(f"Epoch [{epoch + 1}/{num_epochs}], Loss: {loss.item():.4f}")
-
-    model.eval()
-    with torch.no_grad():
-        val_outputs = model(X_val)
-        _, predicted = torch.max(val_outputs, 1)
-        correct = (predicted == y_val).sum().item()
-        accuracy = correct / y_val.size(0)
-        print(f"Validation Accuracy: {accuracy * 100:.2f}%")
+    model = train_model(
+        X_tensor, y_tensor,
+        input_dim=X.shape[1],
+        hidden_dim1=hidden_dim1,
+        hidden_dim2=hidden_dim2,
+        output_dim=output_dim,
+        num_epochs=20,
+        batch_size=32,
+        learning_rate=0.001
+    )
 
 
 def test():
