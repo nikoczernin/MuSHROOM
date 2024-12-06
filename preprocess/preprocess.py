@@ -4,6 +4,8 @@ from stanza.models.common.doc import Document
 from stanza.pipeline.multilingual import MultilingualPipeline
 import os
 import json
+from functools import wraps
+import time
 from pprint import pprint
 
 # Download required Stanza language models for multilingual processing
@@ -11,6 +13,29 @@ from load_data import read_original_data_json
 
 stanza.download(lang="multilingual")  # Download the model for multilingual processing
 
+def timer(func):
+    """
+    A decorator to measure and print the execution time of a function.
+
+    Args:
+    - func (function): The function to be wrapped by the timer decorator.
+
+    Returns:
+    - wrapper (function): A wrapped function that calculates and prints the time
+                           taken to execute the original function.
+
+    This decorator can be used to wrap functions and output their execution time
+    in seconds.
+    """
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        start_time = time.time()
+        result = func(*args, **kwargs)
+        end_time = time.time()
+        duration = end_time - start_time
+        print(f"{func.__name__} executed in {duration:.4f} seconds")
+        return result
+    return wrapper
 
 class Preprocess:
     """
@@ -322,6 +347,7 @@ def preprocess_project(sample=True, train=True, val=True):
                 "hard_labels": hard_labels,
             })
 
+        # create it in advance otherwise the prep well go stoopid
         # After processing all rows in the column, save the processed text in JSON format
         with open(f"../data/output/{output_foldername}/{df_name}_preprocessed.json", "w") as f:
             json.dump(all_observations, f)

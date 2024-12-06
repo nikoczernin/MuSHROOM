@@ -1,32 +1,21 @@
-from pprint import pprint
-import pandas as pd
-from load_data import load_conll_data
-
-import os
 import json
-import numpy as np
-import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
 import torch.optim as optim
 import numpy as np
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
-
-from help import get_lemmas_from_stanza_list
+from transformers import AutoTokenizer, AutoModelForSequenceClassification
+from preprocess.preprocess import timer
 
 import warnings
 warnings.filterwarnings('ignore')  # "error", "ignore", "always", "default", "module" or "once"
 
 
-
 def main():
-
     # read the json of the preprocessed data
     with open('../data/output/preprocessing_outputs/sample_preprocessed.json') as f:
         sample = json.load(f)
-
-
 
     long_data = []
     for obj in sample:
@@ -51,18 +40,17 @@ def main():
 
 
     # [CLS] query [SEP] a single token from the answer [SEP] UPOS: the upos of the token, XPOS: the xpos of the token [SEP]
-    features = [f"[CLS] {obj.get('query')} [SEP] {obj.get('lemma')} [SEP] UPOS: {obj.get('upos')} [SEP] {obj.get('xpos')}" for obj in long_data]
+    features = [(f"[CLS] {obj.get('query')} "
+                 f"[SEP] {obj.get('lemma')} "
+                 f"[SEP] UPOS: {obj.get('upos')} "
+                 f"[SEP] {obj.get('xpos')}") for obj in long_data]
     labels = [obj.get('label') for obj in long_data]
 
     if len(features) != len(labels):
         raise Exception("The number of features and labels do not match!")
 
-
-
-
     ########################
     # MODEL TEST
-
 
     # Initialize label encoders for each feature
     features_encoder = LabelEncoder()
@@ -82,8 +70,6 @@ def main():
 
     print(y.shape)
     print(y)
-    raise hell
-
 
     # Convert to PyTorch tensors
     X_tensor = torch.tensor(X, dtype=torch.float32)
@@ -91,7 +77,6 @@ def main():
 
     # Split into train and validation sets
     X_train, X_val, y_train, y_val = train_test_split(X_tensor, y_tensor, test_size=0.2, random_state=42)
-
 
     class HallucinationModel(nn.Module):
         def __init__(self, input_dim, hidden_dim1, hidden_dim2, output_dim):
@@ -167,8 +152,6 @@ def main():
     print("nn")
 
 
-
-from transformers import AutoTokenizer, AutoModelForSequenceClassification
 def test():
     pass
 

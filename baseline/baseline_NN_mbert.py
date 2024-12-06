@@ -1,21 +1,7 @@
-from pprint import pprint
-import pandas as pd
-from load_data import load_conll_data
-
-import os
 import json
-import numpy as np
-import matplotlib.pyplot as plt
 import torch
-import torch.nn as nn
-import torch.optim as optim
-import numpy as np
-from sklearn.preprocessing import LabelEncoder
-from sklearn.model_selection import train_test_split
 from transformers import AdamW
 from torch.nn import CrossEntropyLoss
-
-from help import get_lemmas_from_stanza_list
 
 from transformers import BertTokenizer, BertForSequenceClassification
 from torch.utils.data import DataLoader, Dataset
