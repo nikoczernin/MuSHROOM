@@ -13,30 +13,6 @@ from load_data import read_original_data_json
 
 stanza.download(lang="multilingual")  # Download the model for multilingual processing
 
-def timer(func):
-    """
-    A decorator to measure and print the execution time of a function.
-
-    Args:
-    - func (function): The function to be wrapped by the timer decorator.
-
-    Returns:
-    - wrapper (function): A wrapped function that calculates and prints the time
-                           taken to execute the original function.
-
-    This decorator can be used to wrap functions and output their execution time
-    in seconds.
-    """
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        start_time = time.time()
-        result = func(*args, **kwargs)
-        end_time = time.time()
-        duration = end_time - start_time
-        print(f"{func.__name__} executed in {duration:.4f} seconds")
-        return result
-    return wrapper
-
 class Preprocess:
     """
     A class for text preprocessing that includes methods for:
@@ -151,7 +127,6 @@ class Preprocess:
                 for word in sentence.words:
                     print(word.lemma, end=" ")  # Print each lemmatized word with a space separator
                 print()  # New line after each sentence
-
 
 
 def test():

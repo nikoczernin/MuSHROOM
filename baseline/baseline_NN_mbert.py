@@ -5,43 +5,14 @@ from torch.nn import CrossEntropyLoss
 
 from transformers import BertTokenizer, BertForSequenceClassification
 from torch.utils.data import DataLoader, Dataset
+from baseline_utils import get_data_for_training
 
 import warnings
 
 warnings.filterwarnings('ignore')  # "error", "ignore", "always", "default", "module" or "once"
 
-# read the json of the preprocessed data
-with open('../data/output/preprocessing_outputs/sample_preprocessed.json') as f:
-    sample = json.load(f)
-
-long_data = []
-for obj in sample:
-    # now create a new object for each preprocessing mode output token and append it to the long_data list
-    # we iterate over the processed token objects, with the iterating number being i
-    # the ith token should correspond with the ith label
-    # TODO: should we use the full original query or a concatenated version of its lemmas?
-    query = obj.get("model_input")
-    for sentence in obj["model_output_text_processed"]:
-        for token in sentence:
-            lemma = token.get("lemma")
-            upos = token.get("upos")
-            xpos = token.get("xpos")
-            label = token.get("hallucination")
-            long_data.append({
-                "query": query,
-                "lemma": lemma,
-                "upos": upos,
-                "xpos": xpos,
-                "label": int(label) if label is not None else 0
-            })
-
-# [CLS] query [SEP] a single token from the answer [SEP] UPOS: the upos of the token, XPOS: the xpos of the token [SEP]
-features = [f"[CLS] {obj.get('query')} [SEP] {obj.get('lemma')} [SEP] UPOS: {obj.get('upos')} [SEP] {obj.get('xpos')}"
-            for obj in long_data]
-labels = [obj.get('label') for obj in long_data]
-
-if len(features) != len(labels):
-    raise Exception("The number of features and labels do not match!")
+# To Niko: exported as a function to baseline_utils for clearer struct, it was the same for both models
+features, labels = get_data_for_training()
 print("Data is prepared!")
 
 # Define constants

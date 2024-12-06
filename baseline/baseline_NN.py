@@ -1,4 +1,3 @@
-import json
 import torch
 import numpy as np
 from sklearn.preprocessing import LabelEncoder
@@ -6,53 +5,15 @@ from sklearn.model_selection import train_test_split
 import torch.optim as optim
 import torch.nn as nn
 
-from preprocess.preprocess import timer
+from baseline.baseline_utils import timer, get_data_for_training
 from baseline.baseline_models import HallucinationBaselineNN
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix
 
 import warnings
 warnings.filterwarnings('ignore')  # "error", "ignore", "always", "default", "module" or "once"
 
 
 @timer
-def get_data_for_training():
-    # read the json of the preprocessed data
-    with open('../data/output/preprocessing_outputs/sample_preprocessed.json') as f:
-        sample = json.load(f)
-
-    long_data = []
-    for obj in sample:
-        # now create a new object for each preprocessing mode output token and append it to the long_data list
-        # we iterate over the processed token objects, with the iterating number being i
-        # the ith token should correspond with the ith label
-        # TODO: should we use the full original query or a concatenated version of its lemmas?
-        query = obj.get("model_input")
-        for sentence in obj["model_output_text_processed"]:
-            for token in sentence:
-                lemma = token.get("lemma")
-                upos = token.get("upos")
-                xpos = token.get("xpos")
-                label = token.get("hallucination")
-                long_data.append({
-                    "query": query,
-                    "lemma": lemma,
-                    "upos": upos,
-                    "xpos": xpos,
-                    "label": int(label) if label is not None else 0
-                })
-
-    # [CLS] query [SEP] a single token from the answer [SEP] UPOS: the upos of the token, XPOS: the xpos of the token [SEP]
-    features = [(f"[CLS] {obj.get('query')} "
-                 f"[SEP] {obj.get('lemma')} "
-                 f"[SEP] UPOS: {obj.get('upos')} "
-                 f"[SEP] {obj.get('xpos')}") for obj in long_data]
-    labels = [obj.get('label') for obj in long_data]
-
-    if len(features) != len(labels):
-        raise Exception("The number of features and labels do not match!")
-
-    return features, labels
-
-
 def parse_feature(feature):
     """
     Parses a feature string into its components: query, word, UPOS, and XPOS.
@@ -107,22 +68,18 @@ def encode_features(features):
 
 @timer
 def train_model(X_tensor, y_tensor, input_dim, hidden_dim1, hidden_dim2, output_dim, num_epochs=10, batch_size=32, learning_rate=0.001):
-    # Train-test split
     X_train, X_val, y_train, y_val = train_test_split(X_tensor, y_tensor, test_size=0.2, random_state=42)
 
-    # Model, Loss, Optimizer
     model = HallucinationBaselineNN(input_dim, hidden_dim1, hidden_dim2, output_dim)
-    criterion = nn.CrossEntropyLoss()  # Suitable for multi-class classification
+    criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
-    # DataLoader for batching
     train_dataset = torch.utils.data.TensorDataset(X_train, y_train)
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 
     val_dataset = torch.utils.data.TensorDataset(X_val, y_val)
     val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
-    # Training loop
     for epoch in range(num_epochs):
         model.train()
         train_loss = 0.0
@@ -157,25 +114,75 @@ def train_model(X_tensor, y_tensor, input_dim, hidden_dim1, hidden_dim2, output_
 
 
 @timer
-def main(input_dim: int = 3, hidden_dim1: int = 64, hidden_dim2: int = 32, output_dim: int = 2):
-    features, labels = get_data_for_training()
+def evaluate_model(model, X_test, y_test):
+    """
+    Evaluate the trained model on a test dataset.
 
+    Parameters:
+        model (nn.Module): Trained PyTorch model.
+        X_test (torch.Tensor): Test set features.
+        y_test (torch.Tensor): Test set labels.
+
+    Returns:
+        None
+    """
+    model.eval()  # Set model to evaluation mode
+
+    with torch.no_grad():
+        outputs = model(X_test)  # Forward pass
+        _, predictions = torch.max(outputs, 1)  # Get class predictions
+
+    # Convert predictions and labels to NumPy arrays
+    y_pred = predictions.numpy()
+    y_true = y_test.numpy()
+
+    # Calculate metrics
+    accuracy = accuracy_score(y_true, y_pred)
+    precision = precision_score(y_true, y_pred, average='weighted')
+    recall = recall_score(y_true, y_pred, average='weighted')
+    f1 = f1_score(y_true, y_pred, average='weighted')
+    conf_matrix = confusion_matrix(y_true, y_pred)
+
+    # Print metrics
+    print("Evaluation Metrics:")
+    print(f"Accuracy: {accuracy:.4f}")
+    print(f"Precision: {precision:.4f}")
+    print(f"Recall: {recall:.4f}")
+    print(f"F1 Score: {f1:.4f}")
+    print("Confusion Matrix:")
+    print(conf_matrix)
+
+
+@timer
+def main(hidden_dim1: int = 64,
+         hidden_dim2: int = 32,
+         output_dim: int = 2,
+         epochs: int = 20,
+         batch_size: int = 32,
+         learning_rate: float = 0.001):
+    features, labels = get_data_for_training()
     X = encode_features(features)
     y = np.array(labels)
 
-    X_tensor = torch.tensor(X, dtype=torch.float32)
-    y_tensor = torch.tensor(y, dtype=torch.long)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+    X_train_tensor = torch.tensor(X_train, dtype=torch.float32)
+    y_train_tensor = torch.tensor(y_train, dtype=torch.long)
+    X_test_tensor = torch.tensor(X_test, dtype=torch.float32)
+    y_test_tensor = torch.tensor(y_test, dtype=torch.long)
 
     model = train_model(
-        X_tensor, y_tensor,
-        input_dim=X.shape[1],
+        X_train_tensor, y_train_tensor,
+        input_dim=X_train.shape[1],
         hidden_dim1=hidden_dim1,
         hidden_dim2=hidden_dim2,
         output_dim=output_dim,
-        num_epochs=20,
-        batch_size=32,
-        learning_rate=0.001
+        num_epochs=epochs,
+        batch_size=batch_size,
+        learning_rate=learning_rate
     )
+
+    evaluate_model(model, X_test_tensor, y_test_tensor)
 
 
 def test():
@@ -183,4 +190,7 @@ def test():
 
 
 if __name__ == "__main__":
-    main()
+    main(epochs=20,
+         batch_size=32,
+         learning_rate=0.005
+         )
