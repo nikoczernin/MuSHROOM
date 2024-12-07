@@ -3,7 +3,7 @@ import torch
 from transformers import AdamW
 from torch.nn import CrossEntropyLoss
 
-from transformers import BertTokenizer, BertForSequenceClassification
+from transformers import BertTokenizer, BertForSequenceClassification, BertForTokenClassification
 from torch.utils.data import DataLoader, Dataset
 from baseline_utils import get_data_for_training
 
@@ -12,7 +12,7 @@ import warnings
 warnings.filterwarnings('ignore')  # "error", "ignore", "always", "default", "module" or "once"
 
 # To Niko: exported as a function to baseline_utils for clearer struct, it was the same for both models
-features, labels = get_data_for_training()
+features, labels = get_data_for_training('../data/preprocessed/sample_preprocessed.json')
 print("Data is prepared!")
 
 # Define constants
@@ -21,7 +21,9 @@ MAX_LENGTH = 128  # Max token length for mBERT
 
 print("Loading tokenizer and model...")
 tokenizer = BertTokenizer.from_pretrained(MODEL_NAME)
-model = BertForSequenceClassification.from_pretrained(MODEL_NAME, num_labels=2)
+# model = BertForSequenceClassification.from_pretrained(MODEL_NAME, num_labels=2)
+model = BertForTokenClassification.from_pretrained(MODEL_NAME, num_labels=2)
+
 print("Tokenizer and model loaded!")
 
 
@@ -38,7 +40,7 @@ class HallucinationDataset(Dataset):
 
     def __getitem__(self, idx):
         feature = self.features[idx]
-        label = self.labels[idx]
+        labels = self.labels[idx]
 
         # Tokenize input text
         encoded = self.tokenizer(
@@ -48,10 +50,21 @@ class HallucinationDataset(Dataset):
             max_length=self.max_length,
             return_tensors="pt",
         )
+        # label_ids starts as a list of -100 values, matching the length of the tokenized input sequence.
+        label_ids = [-100] * len(encoded["input_ids"][0])  # Ignore non-response tokens
+        # the self.tokenizer.sep_token_id identifies the [SEP] token, which separates the query from the response
+        # response_start points to the position in the tokenized sequence immediately after the first [SEP],
+        # marking the start of the response
+        response_start = encoded["input_ids"][0].tolist().index(self.tokenizer.sep_token_id) + 1
+        # labels is the binary label list for the response tokens (e.g., [0, 0, 1, 0, 1]).
+        # This line replaces the corresponding portion of label_ids (starting from response_start) with
+        # the actual labels for the response tokens.
+        label_ids[response_start:response_start + len(labels)] = labels
+
         return {
             "input_ids": encoded["input_ids"].squeeze(0),
             "attention_mask": encoded["attention_mask"].squeeze(0),
-            "label": torch.tensor(label, dtype=torch.long),
+            "label": torch.tensor(label_ids, dtype=torch.long),
         }
 
 

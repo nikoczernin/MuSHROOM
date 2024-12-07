@@ -29,12 +29,13 @@ def timer(func):
 
 
 @timer
-def get_data_for_training():
+def get_data_for_training(datapath, include_POS=False):
     # read the json of the preprocessed data
-    with open('../data/output/preprocessing_outputs/sample_preprocessed.json') as f:
+    with open(datapath) as f:
         sample = json.load(f)
 
-    long_data = []
+    features = []
+    labels = []
     for obj in sample:
         # now create a new object for each preprocessing mode output token and append it to the long_data list
         # we iterate over the processed token objects, with the iterating number being i
@@ -42,25 +43,28 @@ def get_data_for_training():
         # TODO: should we use the full original query or a concatenated version of its lemmas?
         query = obj.get("model_input")
         for sentence in obj["model_output_text_processed"]:
+            # the feature of this observation is the query and the response
+            feature = ""
+            feature += f"[CLS] {query} [SEP]"
+            # the label of this response is a list of binary labels (1 for hallucatinations)
+            label_sequence = []
             for token in sentence:
+                feature += " " # add a single whitespace for every new token
+                if include_POS:
+                    # these 4 rows are optional: include POS-tags in the features
+                    upos = token.get("upos")
+                    feature += f" {upos}"
+                    xpos = token.get("xpos")
+                    feature += f" {xpos}"
+                # add every lemma as a feature
                 lemma = token.get("lemma")
-                upos = token.get("upos")
-                xpos = token.get("xpos")
+                feature += lemma + "" if lemma is not None else ""
+                # for each word add also the label to the labels sequence
                 label = token.get("hallucination")
-                long_data.append({
-                    "query": query,
-                    "lemma": lemma,
-                    "upos": upos,
-                    "xpos": xpos,
-                    "label": int(label) if label is not None else 0
-                })
-
-    # [CLS] query [SEP] a single token from the answer [SEP] UPOS: the upos of the token, XPOS: the xpos of the token [SEP]
-    features = [(f"[CLS] {obj.get('query')} "
-                 f"[SEP] {obj.get('lemma')} "
-                 f"[SEP] UPOS: {obj.get('upos')} "
-                 f"[SEP] {obj.get('xpos')}") for obj in long_data]
-    labels = [obj.get('label') for obj in long_data]
+                label_sequence.append(int(label) if label is not None else 0)
+            # save the data in the lists
+            features.append(feature)
+            labels.append(label_sequence)
 
     if len(features) != len(labels):
         raise Exception("The number of features and labels do not match!")
