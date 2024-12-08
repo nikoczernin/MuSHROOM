@@ -1,14 +1,16 @@
-import json
-import torch
-from transformers import AdamW
-from torch.nn import CrossEntropyLoss
 import numpy as np
-from transformers import BertTokenizer, BertForSequenceClassification, BertForTokenClassification
-from torch.utils.data import DataLoader, Dataset
+
+from transformers import AdamW
+from transformers import BertTokenizer, BertForTokenClassification
+import torch
+from torch.utils.data import DataLoader, Dataset, Subset
+from torch.nn import CrossEntropyLoss
+from sklearn.metrics import precision_score, recall_score, f1_score, accuracy_score
+from sklearn.model_selection import KFold
+
 from baseline_utils import get_data_for_training
 
 import warnings
-
 warnings.filterwarnings('ignore')  # "error", "ignore", "always", "default", "module" or "once"
 
 
@@ -169,6 +171,92 @@ def get_evaluation_data(dataloader, predictions, DEBUG=False, include_padding=Fa
     return true_labels, predicted_labels
 
 
+def evaluate_model(y, yhat, labels_ignore=[-100]):
+    """
+    Evaluates the model's performance using precision, recall, F1-score, and accuracy.
+
+    Inputs:
+    - y: List of arrays with true labels for response tokens.
+    - yhat: List of arrays with predicted labels for response tokens.
+    - labels_ignore: List of labels to exclude during evaluation (e.g., padding token `-100`).
+
+    Outputs:
+    - metrics: Dictionary containing precision, recall, F1-score, and accuracy.
+    """
+    # Flatten lists of arrays
+    y_flat = np.concatenate(y).flatten()
+    yhat_flat = np.concatenate(yhat).flatten()
+
+    # Filter out ignored labels (like padding)
+    valid_indices = np.isin(y_flat, labels_ignore, invert=True)
+    y_filtered = y_flat[valid_indices]
+    yhat_filtered = yhat_flat[valid_indices]
+
+    # Compute metrics
+    precision = precision_score(y_filtered, yhat_filtered, average="binary")
+    recall = recall_score(y_filtered, yhat_filtered, average="binary")
+    f1 = f1_score(y_filtered, yhat_filtered, average="binary")
+    accuracy = accuracy_score(y_filtered, yhat_filtered)
+
+    metrics = {
+        "Precision": precision,
+        "Recall": recall,
+        "F1-Score": f1,
+        "Accuracy": accuracy,
+    }
+    return metrics
+
+
+def cross_validate_model(features, labels, tokenizer, model, args, num_folds=5):
+    """
+    Performs k-fold cross-validation on the dataset.
+
+    Inputs:
+    - features: List of text inputs.
+    - labels: List of corresponding token labels.
+    - tokenizer: Pre-trained tokenizer for text processing.
+    - model: Pre-trained token classification model.
+    - args: Arguments object with training configuration.
+    - num_folds: Number of folds for cross-validation.
+
+    Outputs:
+    - avg_metrics: Dictionary with average metrics across folds.
+    """
+    kfold = KFold(n_splits=num_folds, shuffle=True, random_state=42)
+    fold_metrics = []
+
+    for fold, (train_idx, test_idx) in enumerate(kfold.split(features)):
+        print(f"Fold {fold + 1}/{num_folds}")
+
+        # Create train/test datasets and dataloaders
+        train_dataset = Subset(HallucinationDataset(features, labels, tokenizer, args.max_length), train_idx)
+        test_dataset = Subset(HallucinationDataset(features, labels, tokenizer, args.max_length), test_idx)
+        train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
+        test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False)
+
+        # Reinitialize model for each fold
+        model_copy = BertForTokenClassification.from_pretrained(args.model_name, num_labels=2)
+        model_copy.to(args.device)
+        optimizer = AdamW(model_copy.parameters(), lr=args.learning_rate)
+
+        # Train the model
+        train_model(model_copy, train_loader, args)
+
+        # Evaluate on the test fold
+        predictions = inference(model_copy, test_loader, flatten_output=True)
+        y, yhat = get_evaluation_data(test_loader, predictions)
+        metrics = evaluate_model(y, yhat)
+        fold_metrics.append(metrics)
+
+    # Aggregate metrics across folds
+    avg_metrics = {metric: np.mean([m[metric] for m in fold_metrics]) for metric in fold_metrics[0].keys()}
+    print("Average Metrics Across Folds:")
+    for metric, value in avg_metrics.items():
+        print(f"{metric}: {value:.4f}")
+
+    return avg_metrics
+
+
 features, labels = get_data_for_training('../data/preprocessed/sample_preprocessed.json')
 print("Data is prepared!")
 
@@ -230,3 +318,29 @@ y, yhat = get_evaluation_data(test_loader, predictions, DEBUG=False)
 print(y[0])
 print(yhat[0])
 # TODO: apply evaluation metrics here!
+
+metrics = evaluate_model(y, yhat)
+print("Evaluation Metrics:")
+for metric, value in metrics.items():
+    print(f"{metric}: {value:.4f}")
+'''
+ARGS.batch_size = 8
+ARGS.learning_rate = 2e-5
+ARGS.max_length = 128
+ARGS.model_name = TOKENIZER_MODEL_NAME
+
+print("Starting cross-validation...")
+avg_metrics = cross_validate_model(
+    features=features,
+    labels=labels,
+    tokenizer=tokenizer,
+    model=model,
+    args=ARGS,
+    num_folds=5
+)
+
+# Print average metrics across all folds
+print("Cross-validation completed. Average Metrics:")
+for metric, value in avg_metrics.items():
+    print(f"{metric}: {value:.4f}")
+'''
