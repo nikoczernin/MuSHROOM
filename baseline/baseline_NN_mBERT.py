@@ -84,13 +84,13 @@ def train_model(training_model, dataloader, args, tokenizer_name="mbert_token_cl
     print("Model and tokenizer saved!")
 
 
-def inference(inference_model, dataloader):
+def inference(inference_model, dataloader, flatten_output=False):
     # inputs: input_ids of a batch, which is the yield of iterating the trainloader
     # for batch in trainloader:
     #     inference(model, batch["input_ids"])
     # returns:
     inference_model.eval()  # is this necessary?
-    yhat = []
+    all_predictions = []
     for batch in dataloader:
         input_ids = batch["input_ids"].to(ARGS.device)
         attention_mask = batch["attention_mask"].to(ARGS.device)
@@ -101,9 +101,72 @@ def inference(inference_model, dataloader):
         # and therefore have shape (num_obs_in_batch, size_feature_space, num_class_labels)
         # Convert logits to predicted labels
         preds = torch.argmax(output.logits, dim=-1)  # Shape: [num_obs_in_batch, size_feature_space]
-        yhat.append(preds.cpu())
-    yhat = torch.cat(yhat, dim=0)  # Shape: (total_num_samples, seq_len)
-    return yhat
+        all_predictions.append(preds.cpu())
+    if flatten_output:
+        all_predictions = torch.cat(all_predictions, dim=0)  # Shape: (total_num_samples, seq_len)
+    return all_predictions
+
+
+def get_evaluation_data(dataloader, predictions, DEBUG=False, include_padding=False):
+    """
+        Processes predictions and true labels from a dataloader to extract token-level evaluation data.
+
+        Inputs:
+        - dataloader: PyTorch DataLoader providing batches of input data, including:
+            * 'input_ids': Tokenized input sequences (query + response).
+            * 'label': Ground truth labels for each token, aligned with the tokenized sequence.
+        - predictions: 2D array (or tensor) of model predictions, where each row corresponds to a sequence
+                       and each column is a predicted label for a token.
+        - DEBUG: (bool) Optional flag to enable detailed debugging output for inspection.
+
+        Outputs:
+        - true_labels: A list of arrays, where each array contains the ground truth labels for the response tokens.
+                       Excludes padding and query tokens.
+        - predicted_labels: A list of arrays, where each array contains the predicted labels for the response tokens.
+                            Excludes padding and query tokens.
+
+        Purpose:
+        - Aligns predictions with their respective tokens and labels in the response part of the sequence.
+        - Filters out padding (`-100` labels) and query tokens, focusing only on response tokens.
+        - Returns data ready for token-level evaluation metrics (e.g., precision, recall, F1).
+    """
+    true_labels = []  # Store true labels for evaluation
+    predicted_labels = []  # Store predicted labels for evaluation
+    for batch_idx, batch in enumerate(dataloader):
+        input_ids = batch["input_ids"]
+        labels = batch["label"]
+        # Move labels and predictions to CPU for processing
+        batch_labels = labels.numpy()  # Shape (batch size, size feature space)
+        batch_preds = predictions[batch_idx].numpy()  # Shape (batch size, size feature space)
+
+        # Iterate over each sample in the batch
+        for i in range(input_ids.shape[0]):
+            # Get the tokenized text
+            tokens = tokenizer.convert_ids_to_tokens(input_ids[i])
+            if DEBUG: print(f"Current row: {i + (batch_idx + 1) * input_ids.shape[0]}")
+            if DEBUG: print(f"\tTokens in row:", tokens)
+            # Locate response tokens (after first [SEP])
+            sep_index = input_ids[i].tolist().index(tokenizer.sep_token_id) + 1
+            response_tokens = tokens[sep_index:]
+            if DEBUG: print("\tTokens in response:", response_tokens)
+            response_preds = batch_preds[i][sep_index:]
+            if DEBUG: print("\tPredicted labels for response:", response_preds)
+            response_labels = batch_labels[i][sep_index:]
+            if DEBUG: print("\tActual labels for response:", response_labels)
+            if not include_padding:
+                # now filter out the labels with the -100 labels, those are just padding
+                padding_index = response_labels.tolist().index(-100)
+                if DEBUG: print("\tPadding starts at index", padding_index)
+                response_preds = response_preds[:padding_index]
+                response_labels = response_labels[:padding_index]
+                if DEBUG: print("\tPredicted labels truncated for response:", response_preds)
+                if DEBUG: print("\tActual labels truncated for response:", response_labels)
+            predicted_labels.append(response_preds)
+            true_labels.append(response_labels)
+
+    if len(true_labels) != len(predicted_labels):
+        raise Exception("Size of labels and predictions do not match!")
+    return true_labels, predicted_labels
 
 
 features, labels = get_data_for_training('../data/preprocessed/sample_preprocessed.json')
@@ -134,7 +197,7 @@ class Args:
 
 
 ARGS = Args()
-ARGS.use_cuda = AdamW(model.parameters(), lr=2e-5)
+ARGS.optimizer = AdamW(model.parameters(), lr=2e-5)
 # Define optimizer and loss function
 ARGS.loss_fn = CrossEntropyLoss()
 # Set device
@@ -143,11 +206,27 @@ print(f"Device: {ARGS.device}")
 ARGS.model_name = "mbert_token_classifier"
 ARGS.num_epochs = 3
 ### TRAINING
-# train_model(model, trainloader, args=ARGS)
+train_model(model, train_loader, args=ARGS)
 
 ### TESTING
 print("we testing now")
 
 predictions = inference(model, test_loader)
-print(predictions)
-print(predictions.shape)
+# print(predictions)
+# print(predictions.shape)
+# The shape (total_samples, seq_len) arises because each input to
+# the model is tokenized and padded/truncated to a fixed length
+# (max_length, typically 128 or another specified value)
+# The model predicts a label for every token in the sequence, including:
+#  - Query tokens
+#  - Response tokens
+#  - Padding tokens
+# How do we find the response tokens though?
+# locate the [SEP] token, which separates the query from the response
+# Tokens after the first [SEP] up to the end of the response are the ones you care about
+# Exclude. Padding tokens & Special tokens like [CLS] and [SEP]
+
+y, yhat = get_evaluation_data(test_loader, predictions, DEBUG=False)
+print(y[0])
+print(yhat[0])
+# TODO: apply evaluation metrics here!
