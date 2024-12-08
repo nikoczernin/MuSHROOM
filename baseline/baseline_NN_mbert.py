@@ -57,39 +57,45 @@ class HallucinationDataset(Dataset):
 
 
 
-def train_model(model, dataloader, optimizer, loss_fn, device,
-                model_name, tokenizer_name="mbert_token_classifier"):
-    model.to(device)
+def train_model(model, dataloader, args, tokenizer_name="mbert_token_classifier"):
+    model.to(args.device)
     print("Model moved to device!")
     # Step 5: Training loop
     model.train()
     print("Training started!")
-    for epoch in range(3):  # Number of epochs
+    for epoch in range(args.num_epochs):  # Number of epochs
         total_loss = 0
         for batch in dataloader:
             # Move data to device
-            input_ids = batch["input_ids"].to(device)
-            attention_mask = batch["attention_mask"].to(device)
-            labels = batch["label"].to(device)
+            input_ids = batch["input_ids"].to(args.device)
+            attention_mask = batch["attention_mask"].to(args.device)
+            labels = batch["label"].to(args.device)
             # Forward pass
             outputs = model(input_ids=input_ids,
                             attention_mask=attention_mask,
                             labels=labels)
             loss = outputs.loss
             # Backward pass
-            optimizer.zero_grad()
+            args.optimizer.zero_grad()
             loss.backward()
-            optimizer.step()
+            args.optimizer.step()
             total_loss += loss.item()
         print(f"Epoch {epoch + 1}, Loss: {total_loss / len(dataloader)}")
     print("Training complete!")
     # Step 6: Save the model
-    model.save_pretrained(model_name)
+    model.save_pretrained(args.model_name)
     tokenizer.save_pretrained("mbert_token_classifier")
     print("Model and tokenizer saved!")
 
 
 def inference(model, inputs):
+    # inputs: input_ids of a batch, which is the yield of iterating the trainloader
+    # for batch in trainloader:
+    #     inference(model, batch["input_ids"])
+    # returns:
+    # TokenClassifierOutput with attrs: loss, logits, grad_fn, hidden_states, attentions
+    # the logits should be the probabilities of all classes for each observation
+    # and therefore have shape (num_obs_in_batch, size_feature_space, num_class_labels)
     # model.eval()   # set model to inference mode
     predictions = model(inputs)
     print(predictions)
@@ -100,32 +106,47 @@ features, labels = get_data_for_training('../data/preprocessed/sample_preprocess
 print("Data is prepared!")
 
 # Define constants
-MODEL_NAME = "bert-base-multilingual-cased"
+TOKENIZER_MODEL_NAME = "bert-base-multilingual-cased"
 MAX_LENGTH = 128  # Max token length for mBERT
 
-print("Loading tokenizer and model...")
-tokenizer = BertTokenizer.from_pretrained(MODEL_NAME)
-# model = BertForSequenceClassification.from_pretrained(MODEL_NAME, num_labels=2)
-model = BertForTokenClassification.from_pretrained(MODEL_NAME, num_labels=2)
 
+print("Loading tokenizer and model...")
+tokenizer = BertTokenizer.from_pretrained(TOKENIZER_MODEL_NAME)
+# model = BertForSequenceClassification.from_pretrained(TOKENIZER_MODEL_NAME, num_labels=2)
+model = BertForTokenClassification.from_pretrained(TOKENIZER_MODEL_NAME, num_labels=2)
 print("Tokenizer and model loaded!")
 
 
 
-# Create dataset and dataloader
-dataset = HallucinationDataset(features, labels, tokenizer, max_length=MAX_LENGTH)
-dataloader = DataLoader(dataset, batch_size=8, shuffle=True)
-print("Dataset and dataloader created!")
+
+# Create datasets and dataloaders
+train = HallucinationDataset(features, labels, tokenizer, max_length=MAX_LENGTH)
+test = HallucinationDataset(features, labels, tokenizer, max_length=MAX_LENGTH)
+trainloader = DataLoader(train, batch_size=8, shuffle=True)
+testloader = DataLoader(test, batch_size=8, shuffle=True)
+print("Datasets and dataloaders created!")
 
 # Training setup
+# Helper class for neural network hyper-parameters
+class Args:
+    pass
+ARGS = Args()
+ARGS.use_cuda = AdamW(model.parameters(), lr=2e-5)
 # Define optimizer and loss function
-optimizer = AdamW(model.parameters(), lr=2e-5)
-loss_fn = CrossEntropyLoss()
+ARGS.loss_fn = CrossEntropyLoss()
 # Set device
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print(f"Device: {device}")
-train_model(model, dataloader, optimizer, loss_fn, device,
-                model_name="mbert_token_classifier")
+ARGS.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(f"Device: {ARGS.device}")
+ARGS.model_name = "mbert_token_classifier"
+ARGS.num_epochs = 3
+### TRAINING
+# train_model(model, trainloader, args=ARGS)
 
-print("we here now")
-yhat = inference(model, dataset)
+### TESTING
+print("we testing now")
+model.eval() # is this necessary?
+for batch in testloader:
+    classifier_output = inference(model, batch["input_ids"])
+    yhat = classifier_output["logits"]
+
+
