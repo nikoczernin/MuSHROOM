@@ -10,6 +10,8 @@ from sklearn.model_selection import KFold
 
 from baseline_utils import get_data_for_training
 
+import wandb
+
 import warnings
 
 warnings.filterwarnings('ignore')  # "error", "ignore", "always", "default", "module" or "once"
@@ -267,6 +269,7 @@ def conduct_test(ARGS=None):
     if ARGS is None:
         ARGS = Args()
 
+
     features, labels = get_data_for_training('../data/preprocessed/sample_preprocessed.json')
     print("Data is prepared!")
 
@@ -297,6 +300,26 @@ def conduct_test(ARGS=None):
     ARGS.model_name = "mbert_token_classifier"
     ARGS.num_epochs = 3
 
+
+    # start a new wandb run to track this script
+    wandb.init(
+        # set the wandb project where this run will be logged
+        project="MuSHROOM",
+        # track hyperparameters and run metadata
+        config={
+            "dataset": "sample",
+            "architecture": "Baseline mBERT (query & response sequence classification)",
+            "model": ARGS.model_name,
+            "tokenizer": ARGS.TOKENIZER_MODEL_NAME,
+            "device": ARGS.model_name,
+            "loss_function": ARGS.loss_fn,
+            "optimizer": ARGS.optimizer,
+            "max_length": ARGS.MAX_LENGTH,
+            "num_epochs": ARGS.num_epochs,
+        }
+    )
+
+
     ### TRAINING
     train_model(model, train_loader, args=ARGS)
 
@@ -318,13 +341,17 @@ def conduct_test(ARGS=None):
     y, yhat = get_evaluation_data(test_loader, predictions, tokenizer=ARGS.tokenizer, DEBUG=False)
     print(y[0])
     print(yhat[0])
-    # TODO: apply evaluation metrics here!
 
     metrics = evaluate_model(y, yhat)
 
     print("Evaluation Metrics:")
     for metric, value in metrics.items():
         print(f"{metric}: {value:.4f}")
+
+
+    wandb.log(metrics)
+    wandb.finish()
+
     '''
     ARGS.batch_size = 8
     ARGS.learning_rate = 2e-5
