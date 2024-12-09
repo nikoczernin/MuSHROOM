@@ -1,6 +1,6 @@
 import pandas as pd
 import os
-
+import json
 from stanza.utils.conll import CoNLL
 
 
@@ -59,6 +59,18 @@ def load_conll_data(path):
 
 
 if __name__ == "__main__":
-    pass
-    # test_raw_data()
-    print(load_conll_data(f"data/output/preprocessing_outputs/sample_model_output_text.conllu"))
+    path = "data/preprocessed/sample_preprocessed.json"
+    with open(path, "r") as f:
+        data = json.load(f)
+        for row in data:
+            tokens = []
+            tokens.append("[CLS]")
+            for sentence in row["model_input_processed"]:
+                for token in sentence:
+                    try:tokens.append(token["lemma"])
+                    except: pass
+            for sentence in row["model_output_text_processed"]:
+                for token in sentence:
+                    try:tokens.append(token["lemma"])
+                    except: pass
+            print(len(tokens))

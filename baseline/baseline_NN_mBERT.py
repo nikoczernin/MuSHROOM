@@ -11,7 +11,13 @@ from sklearn.model_selection import KFold
 from baseline_utils import get_data_for_training
 
 import warnings
+
 warnings.filterwarnings('ignore')  # "error", "ignore", "always", "default", "module" or "once"
+
+
+# Helper class for all hyper-parameters
+class Args:
+    pass
 
 
 # create a class for the dataset
@@ -55,7 +61,7 @@ class HallucinationDataset(Dataset):
         }
 
 
-def train_model(training_model, dataloader, args, tokenizer_name="mbert_token_classifier"):
+def train_model(training_model, dataloader, args):
     training_model.to(args.device)
     print("Model moved to device!")
     # Step 5: Training loop
@@ -82,11 +88,11 @@ def train_model(training_model, dataloader, args, tokenizer_name="mbert_token_cl
     print("Training complete!")
     # Step 6: Save the model
     training_model.save_pretrained(args.model_name)
-    tokenizer.save_pretrained("mbert_token_classifier")
+    args.tokenizer.save_pretrained("mbert_token_classifier")
     print("Model and tokenizer saved!")
 
 
-def inference(inference_model, dataloader, flatten_output=False):
+def inference(inference_model, dataloader, args, flatten_output=False):
     # inputs: input_ids of a batch, which is the yield of iterating the trainloader
     # for batch in trainloader:
     #     inference(model, batch["input_ids"])
@@ -94,8 +100,8 @@ def inference(inference_model, dataloader, flatten_output=False):
     inference_model.eval()  # is this necessary?
     all_predictions = []
     for batch in dataloader:
-        input_ids = batch["input_ids"].to(ARGS.device)
-        attention_mask = batch["attention_mask"].to(ARGS.device)
+        input_ids = batch["input_ids"].to(args.device)
+        attention_mask = batch["attention_mask"].to(args.device)
         # Get logits from the model
         output = inference_model(input_ids=input_ids, attention_mask=attention_mask)
         # TokenClassifierOutput with attrs: loss, logits, grad_fn, hidden_states, attentions
@@ -109,7 +115,7 @@ def inference(inference_model, dataloader, flatten_output=False):
     return all_predictions
 
 
-def get_evaluation_data(dataloader, predictions, DEBUG=False, include_padding=False):
+def get_evaluation_data(dataloader, predictions, tokenizer, DEBUG=False, include_padding=False):
     """
         Processes predictions and true labels from a dataloader to extract token-level evaluation data.
 
@@ -243,8 +249,8 @@ def cross_validate_model(features, labels, tokenizer, model, args, num_folds=5):
         train_model(model_copy, train_loader, args)
 
         # Evaluate on the test fold
-        predictions = inference(model_copy, test_loader, flatten_output=True)
-        y, yhat = get_evaluation_data(test_loader, predictions)
+        predictions = inference(model_copy, test_loader, args, flatten_output=True)
+        y, yhat = get_evaluation_data(test_loader, predictions, tokenizer)
         metrics = evaluate_model(y, yhat)
         fold_metrics.append(metrics)
 
@@ -257,90 +263,90 @@ def cross_validate_model(features, labels, tokenizer, model, args, num_folds=5):
     return avg_metrics
 
 
-features, labels = get_data_for_training('../data/preprocessed/sample_preprocessed.json')
-print("Data is prepared!")
+def conduct_test(ARGS=None):
+    if ARGS is None:
+        ARGS = Args()
 
-# Define constants
-TOKENIZER_MODEL_NAME = "bert-base-multilingual-cased"
-MAX_LENGTH = 128  # Max token length for mBERT
+    features, labels = get_data_for_training('../data/preprocessed/sample_preprocessed.json')
+    print("Data is prepared!")
 
-print("Loading tokenizer and model...")
-tokenizer = BertTokenizer.from_pretrained(TOKENIZER_MODEL_NAME)
-# model = BertForSequenceClassification.from_pretrained(TOKENIZER_MODEL_NAME, num_labels=2)
-model = BertForTokenClassification.from_pretrained(TOKENIZER_MODEL_NAME, num_labels=2)
-print("Tokenizer and model loaded!")
+    # Define constants
+    ARGS.TOKENIZER_MODEL_NAME = "bert-base-multilingual-cased"
 
-# Create datasets and dataloaders
-train = HallucinationDataset(features, labels, tokenizer, max_length=MAX_LENGTH)
-test = HallucinationDataset(features, labels, tokenizer, max_length=MAX_LENGTH)
-train_loader = DataLoader(train, batch_size=8, shuffle=True)
-test_loader = DataLoader(test, batch_size=8, shuffle=True)
-print("Datasets and dataloaders created!")
+    ARGS.MAX_LENGTH = 128 * 2  # Max token length for mBERT # TODO: is this variable?
+
+    print("Loading tokenizer and model...")
+    ARGS.tokenizer = BertTokenizer.from_pretrained(ARGS.TOKENIZER_MODEL_NAME)
+    model = BertForTokenClassification.from_pretrained(ARGS.TOKENIZER_MODEL_NAME, num_labels=2)
+    print("Tokenizer and model loaded!")
+
+    # Create datasets and dataloaders
+    train = HallucinationDataset(features, labels, tokenizer=ARGS.tokenizer, max_length=ARGS.MAX_LENGTH)
+    test = HallucinationDataset(features, labels, tokenizer=ARGS.tokenizer, max_length=ARGS.MAX_LENGTH)
+    train_loader = DataLoader(train, batch_size=8, shuffle=True)
+    test_loader = DataLoader(test, batch_size=8, shuffle=True)
+    print("Datasets and dataloaders created!")
+
+    # Training setup
+    ARGS.optimizer = AdamW(model.parameters(), lr=2e-5)
+    # Define optimizer and loss function
+    ARGS.loss_fn = CrossEntropyLoss()
+    # Set device
+    ARGS.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Device: {ARGS.device}")
+    ARGS.model_name = "mbert_token_classifier"
+    ARGS.num_epochs = 3
+
+    ### TRAINING
+    train_model(model, train_loader, args=ARGS)
+
+    ### TESTING
+    print("Performing inference")
+    predictions = inference(model, test_loader, args=ARGS)
+    # The shape (total_samples, seq_len) arises because each input to
+    # the model is tokenized and padded/truncated to a fixed length
+    # (max_length, typically 128 or another specified value)
+    # The model predicts a label for every token in the sequence, including:
+    #  - Query tokens
+    #  - Response tokens
+    #  - Padding tokens
+    # How do we find the response tokens though?
+    # locate the [SEP] token, which separates the query from the response
+    # Tokens after the first [SEP] up to the end of the response are the ones you care about
+    # Exclude. Padding tokens & Special tokens like [CLS] and [SEP]
+
+    y, yhat = get_evaluation_data(test_loader, predictions, tokenizer=ARGS.tokenizer, DEBUG=False)
+    print(y[0])
+    print(yhat[0])
+    # TODO: apply evaluation metrics here!
+
+    metrics = evaluate_model(y, yhat)
+
+    print("Evaluation Metrics:")
+    for metric, value in metrics.items():
+        print(f"{metric}: {value:.4f}")
+    '''
+    ARGS.batch_size = 8
+    ARGS.learning_rate = 2e-5
+    ARGS.max_length = 128
+    ARGS.model_name = TOKENIZER_MODEL_NAME
+    
+    print("Starting cross-validation...")
+    avg_metrics = cross_validate_model(
+        features=features,
+        labels=labels,
+        tokenizer=tokenizer,
+        model=model,
+        args=ARGS,
+        num_folds=5
+    )
+    
+    # Print average metrics across all folds
+    print("Cross-validation completed. Average Metrics:")
+    for metric, value in avg_metrics.items():
+        print(f"{metric}: {value:.4f}")
+    '''
 
 
-# Training setup
-# Helper class for neural network hyper-parameters
-class Args:
-    pass
-
-
-ARGS = Args()
-ARGS.optimizer = AdamW(model.parameters(), lr=2e-5)
-# Define optimizer and loss function
-ARGS.loss_fn = CrossEntropyLoss()
-# Set device
-ARGS.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print(f"Device: {ARGS.device}")
-ARGS.model_name = "mbert_token_classifier"
-ARGS.num_epochs = 3
-### TRAINING
-train_model(model, train_loader, args=ARGS)
-
-### TESTING
-print("we testing now")
-
-predictions = inference(model, test_loader)
-# print(predictions)
-# print(predictions.shape)
-# The shape (total_samples, seq_len) arises because each input to
-# the model is tokenized and padded/truncated to a fixed length
-# (max_length, typically 128 or another specified value)
-# The model predicts a label for every token in the sequence, including:
-#  - Query tokens
-#  - Response tokens
-#  - Padding tokens
-# How do we find the response tokens though?
-# locate the [SEP] token, which separates the query from the response
-# Tokens after the first [SEP] up to the end of the response are the ones you care about
-# Exclude. Padding tokens & Special tokens like [CLS] and [SEP]
-
-y, yhat = get_evaluation_data(test_loader, predictions, DEBUG=False)
-print(y[0])
-print(yhat[0])
-# TODO: apply evaluation metrics here!
-
-metrics = evaluate_model(y, yhat)
-print("Evaluation Metrics:")
-for metric, value in metrics.items():
-    print(f"{metric}: {value:.4f}")
-'''
-ARGS.batch_size = 8
-ARGS.learning_rate = 2e-5
-ARGS.max_length = 128
-ARGS.model_name = TOKENIZER_MODEL_NAME
-
-print("Starting cross-validation...")
-avg_metrics = cross_validate_model(
-    features=features,
-    labels=labels,
-    tokenizer=tokenizer,
-    model=model,
-    args=ARGS,
-    num_folds=5
-)
-
-# Print average metrics across all folds
-print("Cross-validation completed. Average Metrics:")
-for metric, value in avg_metrics.items():
-    print(f"{metric}: {value:.4f}")
-'''
+if __name__ == "__main__":
+    conduct_test()
