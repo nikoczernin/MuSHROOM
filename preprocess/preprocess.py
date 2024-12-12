@@ -1,3 +1,4 @@
+import pandas as pd
 import stanza
 from stanza.utils.conll import CoNLL
 from stanza.models.common.doc import Document
@@ -12,6 +13,8 @@ from pprint import pprint
 from load_data import read_original_data_json
 
 stanza.download(lang="multilingual")  # Download the model for multilingual processing
+
+
 
 class Preprocess:
     """
@@ -239,6 +242,79 @@ def preprocess_project_milestone1(sample=True, train=True, val=True):
             Preprocess.save_processed_text_conllu(processed_data, f"data/output/{output_foldername}", f"{df_name}_{col}.conllu")
 
 
+def preprocess(data, data_name, output_folder="../data/"):
+    # Create an instance of the Preprocess class to handle text processing operations
+    preprocessor = Preprocess()
+
+    # define a list of all observations, each being a dictionary
+    # we then save each list of observations as a json file
+    all_observations = []
+
+
+    print("Processing", data_name)
+
+    # Update the preprocessor to include languages in 'langs' (download models if missing)
+    langs = data["lang"]
+    print(f"All detected languages in this dataset: {list(set(data['lang']))}")
+    preprocessor.update_languages(langs)
+
+    # Iterate over each row to process text with language-specific handling
+    # This is especially necessary because some languages (e.g., Hindi) might require special handling
+    for row in data.itertuples():
+        # itertuples() yields rows as row objects
+        # get the attributes from the row object
+        i = getattr(row, "Index")
+        model_input = getattr(row, "model_input").strip()
+        model_output_text = getattr(row, "model_output_text").strip()
+        lang = getattr(row, "lang")
+        try:
+            hard_labels = getattr(row, "hard_labels")
+        except AttributeError:
+            hard_labels = None
+
+        # Process the text using the Preprocess class, which might unpack it if necessary
+        # This processing is row-by-row because some languages could trip up a bulk pipeline
+        # print(f"\tProcessing input: ({lang}) \"{model_input[:100]} ...\"")
+        model_input_processed = preprocessor.preprocess(model_input, lang)[0].to_dict()
+        # print(f"\tProcessing output: ({lang}) \"{model_output_text[:100000]} ...\"")
+        model_output_text_processed = preprocessor.preprocess(model_output_text, lang)[0].to_dict()
+
+        # the hard labels correspond with character indices of the model_output_text
+        # the Stanza preprocessing saves the original word starting and ending character indices
+        # these we can compare with the character index hard labels to check if it is a hallucination
+        # we do that here to save the hard label of each token in the preprocessed data
+        if hard_labels is not None:
+            for sentence in model_output_text_processed:
+                for token in sentence:
+                    # not all token objects have the start_char and end_char attributes, the others you can skip
+                    if "start_char" in token.keys():
+                        print(hard_labels)
+                        for left, right in hard_labels:
+                            if left <= token["start_char"] <= right:
+                                token["hallucination"] = True
+                                break
+                            else:
+                                token["hallucination"] = False
+
+
+        # Append the processed data and all wanted attributes to our list for later saving
+        all_observations.append({
+            # original data
+            "model_input": model_input,
+            "model_output_text": model_output_text,
+            # processed data
+            "model_input_processed": model_input_processed,
+            "model_output_text_processed": model_output_text_processed,
+            "lang": lang,
+            "hard_labels": hard_labels,
+        })
+    # create it in advance otherwise the prep well go stoopid
+    # After processing all rows in the column, save the processed text in JSON format
+    print(f"Saving preprocessed data to '{output_folder}/{data_name}_preprocessed.json'")
+    with open(f"{output_folder}/{data_name}_preprocessed.json", "w") as f:
+        json.dump(all_observations, f)
+
+
 def preprocess_project(sample=True, train=True, val=True, output_folder="../data/"):
     # Define the path to the data directory
     # os.getcwd() returns the current working directory; adding '/data' to it specifies the data folder
@@ -248,92 +324,22 @@ def preprocess_project(sample=True, train=True, val=True, output_folder="../data
     # The dictionary keys are the folder names, and values are the DataFrames with the data
     dataDict = read_original_data_json(DATA_DIR)
 
-    # Create an instance of the Preprocess class to handle text processing operations
-    preprocessor = Preprocess()
-
-    df_names = []
-    if sample: df_names.append("sample")
-    if val: df_names.append("val")
-    if train: df_names.append("train")
+    dataframes_to_process = []
+    if sample: dataframes_to_process.append("sample")
+    if val: dataframes_to_process.append("val")
+    if train: dataframes_to_process.append("train")
 
     # Loop over each DataFrame and each row to preprocess text data
     for df_name, df in dataDict.items():
-        # define a list of all observations, each being a dictionary
-        # we then save each list of observations as a json file
-        all_observations = []
+        if df_name in dataframes_to_process:
+            preprocess(df, df_name, output_folder)
 
-        # this line skips dataframes if they are false in the function parameters
-        if df_name not in df_names: continue
-
-        print("Processing", df_name)
-
-        # Update the preprocessor to include languages in 'langs' (download models if missing)
-        langs = df["lang"]
-        print(f"All detected languages in this dataset: {list(set(df['lang']))}")
-        preprocessor.update_languages(langs)
-
-        # Iterate over each row to process text with language-specific handling
-        # This is especially necessary because some languages (e.g., Hindi) might require special handling
-        for row in df.itertuples():
-            # itertuples() yields rows as row objects
-            # get the attributes from the row object
-            i = getattr(row, "Index")
-            model_input = getattr(row, "model_input").strip()
-            model_output_text = getattr(row, "model_output_text").strip()
-            lang = getattr(row, "lang")
-            try:
-                hard_labels = getattr(row, "hard_labels")
-            except AttributeError:
-                hard_labels = None
-
-            # Process the text using the Preprocess class, which might unpack it if necessary
-            # This processing is row-by-row because some languages could trip up a bulk pipeline
-            # print(f"\tProcessing input: ({lang}) \"{model_input[:100]} ...\"")
-            model_input_processed = preprocessor.preprocess(model_input, lang)[0].to_dict()
-            # print(f"\tProcessing output: ({lang}) \"{model_output_text[:100000]} ...\"")
-            model_output_text_processed = preprocessor.preprocess(model_output_text, lang)[0].to_dict()
-
-            # the hard labels correspond with character indices of the model_output_text
-            # the Stanza preprocessing saves the original word starting and ending character indices
-            # these we can compare with the character index hard labels to check if it is a hallucination
-            # we do that here to save the hard label of each token in the preprocessed data
-            if hard_labels is not None:
-                for sentence in model_output_text_processed:
-                    for token in sentence:
-                        # not all token objects have the start_char and end_char attributes, the others you can skip
-                        if "start_char" in token.keys():
-                            for left, right in hard_labels:
-                                if left <= token["start_char"] <= right:
-                                    token["hallucination"] = True
-                                    break
-                                else:
-                                    token["hallucination"] = False
-
-
-            # Append the processed data and all wanted attributes to our list for later saving
-            all_observations.append({
-                # original data
-                "model_input": model_input,
-                "model_output_text": model_output_text,
-                # processed data
-                "model_input_processed": model_input_processed,
-                "model_output_text_processed": model_output_text_processed,
-                "lang": lang,
-                "hard_labels": hard_labels,
-            })
-
-        # create it in advance otherwise the prep well go stoopid
-        # After processing all rows in the column, save the processed text in JSON format
-        with open(f"{output_folder}/{df_name}_preprocessed.json", "w") as f:
-            json.dump(all_observations, f)
 
 
 # Run the test function if the script is executed directly
 if __name__ == "__main__":
     # test()
-    preprocess_project(sample=False, train=False, val=True, output_folder="../data/preprocessed")
-    # preprocess_project(sample=True, train=False, val=False)
-    print("Great success, I like!")
+    # preprocess_project(sample=False, train=False, val=True, output_folder="../data/preprocessed")
+    # print("Great success, I like!")
+    preprocess(pd.read_json("../data/exploration/exploration.json", lines=True), "exploration", output_folder="../data/preprocessed")
 
-    # x = "The restoration of Sándor Palace, also known as the Buda Castle, was completed in several phases"
-    # print(x[49:54])
