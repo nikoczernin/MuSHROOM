@@ -22,18 +22,31 @@ class Args:
     pass
 
 
-# create a class for the dataset
+# Dataset class to handle features and labels for token classification
 class HallucinationDataset(Dataset):
     def __init__(self, features, labels, tokenizer, max_length):
+        """
+        Initializes the dataset.
+        - features: List of input texts (queries and responses).
+        - labels: List of binary labels aligned with tokens in the responses.
+        - tokenizer: Pre-trained tokenizer to tokenize the input text.
+        - max_length: Maximum token length for padding/truncation.
+        """
         self.features = features
         self.labels = labels
         self.tokenizer = tokenizer
         self.max_length = max_length
 
     def __len__(self):
+        """
+        Returns the total number of samples in the dataset.
+        """
         return len(self.features)
 
     def __getitem__(self, idx):
+        """
+        Returns a single data point (tokenized text and aligned labels).
+        """
         feature = self.features[idx]
         labels = self.labels[idx]
 
@@ -64,6 +77,12 @@ class HallucinationDataset(Dataset):
 
 
 def train_model(training_model, dataloader, args):
+    """
+    Trains the mBERT model for token classification.
+    - training_model: Pre-trained mBERT model for fine-tuning.
+    - dataloader: DataLoader providing batches of training data.
+    - args: Arguments object with training configurations (device, optimizer, etc.).
+    """
     training_model.to(args.device)
     print("Model moved to device!")
     # Step 5: Training loop
@@ -95,10 +114,19 @@ def train_model(training_model, dataloader, args):
 
 
 def inference(inference_model, dataloader, args, flatten_output=False):
-    # inputs: input_ids of a batch, which is the yield of iterating the trainloader
-    # for batch in trainloader:
-    #     inference(model, batch["input_ids"])
-    # returns:
+    """
+    Performs inference to predict token labels for the input data.
+    - inference_model: Trained model for inference.
+        How to use:
+        for batch in trainloader:
+            inference(model, batch["input_ids"])
+    - dataloader: DataLoader providing batches of input data.
+    - args: Arguments object specifying device for inference.
+    - flatten_output: Whether to return predictions as a single concatenated array.
+
+    Returns:
+    - all_predictions: Predicted labels for each token in the input.
+    """
     inference_model.eval()  # is this necessary?
     all_predictions = []
     for batch in dataloader:
@@ -127,7 +155,9 @@ def get_evaluation_data(dataloader, predictions, tokenizer, DEBUG=False, include
             * 'label': Ground truth labels for each token, aligned with the tokenized sequence.
         - predictions: 2D array (or tensor) of model predictions, where each row corresponds to a sequence
                        and each column is a predicted label for a token.
+        - tokenizer: Tokenizer used for decoding tokens.
         - DEBUG: (bool) Optional flag to enable detailed debugging output for inspection.
+        - include_padding: Whether to include padding tokens in evaluation.
 
         Outputs:
         - true_labels: A list of arrays, where each array contains the ground truth labels for the response tokens.
@@ -266,6 +296,18 @@ def cross_validate_model(features, labels, tokenizer, model, args, num_folds=5):
 
 
 def conduct_test(ARGS=None):
+    """
+    Main function to train and test the mBERT model for hallucination detection.
+    - ARGS: Optional arguments object. If None, a new Args instance is created.
+
+    Steps:
+    1. Load preprocessed data.
+    2. Initialize tokenizer and model.
+    3. Create DataLoader for training and testing datasets.
+    4. Train the model.
+    5. Perform inference on the test dataset.
+    6. Evaluate model performance using precision, recall, F1-score, and accuracy.
+    """
     if ARGS is None:
         ARGS = Args()
 

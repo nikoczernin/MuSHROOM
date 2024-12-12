@@ -239,7 +239,7 @@ def preprocess_project_milestone1(sample=True, train=True, val=True):
             Preprocess.save_processed_text_conllu(processed_data, f"data/output/{output_foldername}", f"{df_name}_{col}.conllu")
 
 
-def preprocess_project(sample=True, train=True, val=True):
+def preprocess_project(sample=True, train=True, val=True, output_folder="../data/"):
     # Define the path to the data directory
     # os.getcwd() returns the current working directory; adding '/data' to it specifies the data folder
     DATA_DIR = os.getcwd() + '/../data'
@@ -255,9 +255,6 @@ def preprocess_project(sample=True, train=True, val=True):
     if sample: df_names.append("sample")
     if val: df_names.append("val")
     if train: df_names.append("train")
-
-    # Define the folder name for saving processed text output
-    output_foldername = f"preprocessing_outputs"
 
     # Loop over each DataFrame and each row to preprocess text data
     for df_name, df in dataDict.items():
@@ -284,7 +281,10 @@ def preprocess_project(sample=True, train=True, val=True):
             model_input = getattr(row, "model_input").strip()
             model_output_text = getattr(row, "model_output_text").strip()
             lang = getattr(row, "lang")
-            hard_labels = getattr(row, "hard_labels")
+            try:
+                hard_labels = getattr(row, "hard_labels")
+            except AttributeError:
+                hard_labels = None
 
             # Process the text using the Preprocess class, which might unpack it if necessary
             # This processing is row-by-row because some languages could trip up a bulk pipeline
@@ -324,14 +324,14 @@ def preprocess_project(sample=True, train=True, val=True):
 
         # create it in advance otherwise the prep well go stoopid
         # After processing all rows in the column, save the processed text in JSON format
-        with open(f"../data/output/{output_foldername}/{df_name}_preprocessed.json", "w") as f:
+        with open(f"{output_folder}/{df_name}_preprocessed.json", "w") as f:
             json.dump(all_observations, f)
 
 
 # Run the test function if the script is executed directly
 if __name__ == "__main__":
     # test()
-    preprocess_project(sample=True, train=False, val=False)
+    preprocess_project(sample=False, train=False, val=True, output_folder="../data/preprocessed")
     # preprocess_project(sample=True, train=False, val=False)
     print("Great success, I like!")
 
