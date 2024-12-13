@@ -105,7 +105,7 @@ def train_model(training_model, dataloader, args):
     # Step 5: Training loop
     training_model.train()
     print("Training started!")
-    previous_loss = np.inf
+    best_total_loss = np.inf
     patience = args.patience
     stop = False
     for epoch in range(args.max_epochs):  # Maximum number of epochs
@@ -133,7 +133,7 @@ def train_model(training_model, dataloader, args):
             wandb.log({"epoch": epoch, "loss": total_loss / len(dataloader), "time": cur_time - t})
 
         # if the loss did not improve, test the patience
-        if total_loss >= previous_loss:
+        if total_loss >= best_total_loss:
             if patience <= 0 and args.early_stopping:
                 print(f" ====> Early stopping at epoch {epoch + 1}")
                 stop = True
@@ -143,8 +143,8 @@ def train_model(training_model, dataloader, args):
         else:
             # else reset the patience
             patience = args.patience
-        # (re)assign the previous loss to the current loss
-        previous_loss = total_loss
+            # and (re)assign the previous loss to the current loss
+            best_total_loss = total_loss
         if stop: break
 
     print("Training complete!")
