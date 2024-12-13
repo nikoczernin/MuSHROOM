@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 
 from transformers import AdamW
@@ -10,6 +12,7 @@ from sklearn.model_selection import KFold
 
 from baseline_utils import get_data_for_training
 
+from time import time as get_time
 # import wandb
 
 import warnings
@@ -17,7 +20,7 @@ import warnings
 warnings.filterwarnings('ignore')  # "error", "ignore", "always", "default", "module" or "once"
 
 
-# Helper class for all hyper-parameters
+# Helper class for all hyperparameters
 class Args:
     def __init__(self):
         self.MAX_LENGTH = 128 * 2  # Max token length for mBERT
@@ -106,6 +109,7 @@ def train_model(training_model, dataloader, args):
     patience = args.patience
     stop = False
     for epoch in range(args.max_epochs):  # Maximum number of epochs
+        t = get_time()
         total_loss = 0
         for batch in dataloader:
             # Move data to device
@@ -123,7 +127,10 @@ def train_model(training_model, dataloader, args):
             args.optimizer.step()
             total_loss += loss.item()
 
-        print(f"Epoch {epoch + 1}, Loss: {total_loss / len(dataloader)}")
+        cur_time = get_time()
+        print(f"Epoch {epoch + 1}, Loss: {total_loss / len(dataloader)}, Time: {cur_time - t}")
+        if args.log:
+            wandb.log({"epoch": epoch, "loss": total_loss / len(dataloader), "time": cur_time - t})
 
         # if the loss did not improve, test the patience
         if total_loss >= previous_loss:
@@ -133,6 +140,9 @@ def train_model(training_model, dataloader, args):
             else:
                 patience -= 1
                 print(f"Patience reduced to {patience}")
+        else:
+            # else reset the patience
+            patience = args.patience
         # (re)assign the previous loss to the current loss
         previous_loss = total_loss
         if stop: break
@@ -340,7 +350,8 @@ def conduct_test(ARGS=None):
     5. Perform inference on the test dataset.
     6. Evaluate model performance using precision, recall, F1-score, and accuracy.
     """
-
+    # TODO: set the cwd to this file
+    os.chdir(os.getcwd())
     features, labels = get_data_for_training(ARGS.data_path)
     print("Data is prepared!")
 
@@ -410,6 +421,13 @@ def conduct_test(ARGS=None):
     print(y[0])
     print(yhat[0])
 
+    # if required, save the prediction data to a file
+    if args.output_path is not None:
+        with open(args.output_path, "w") as f:
+            f.write("True;Predicted\n")
+            for i in range(len(y)):
+                f.write(f"{y[i]};{yhat[i]}\n")
+
     metrics = evaluate_model(y, yhat)
 
     print("Evaluation Metrics:")
@@ -446,5 +464,6 @@ def conduct_test(ARGS=None):
 
 if __name__ == "__main__":
     args = Args()
-    args.data_path = '../data/preprocessed/sample_preprocessed.json'
+    args.data_path = '../data/preprocessed/val_preprocessed.json'
+    args.data_path = '../data/output/val_predictions_mbert1.json'
     conduct_test(args)
