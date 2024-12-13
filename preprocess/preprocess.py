@@ -339,7 +339,7 @@ def preprocess_project(sample=True, train=True, val=True, output_folder="../data
 # Run the test function if the script is executed directly
 if __name__ == "__main__":
     # test()
-    # preprocess_project(sample=False, train=False, val=True, output_folder="../data/preprocessed")
+    preprocess_project(sample=False, train=False, val=True, output_folder="../data/preprocessed")
     # print("Great success, I like!")
-    preprocess(pd.read_json("../data/exploration/exploration.json", lines=True), "exploration", output_folder="../data/preprocessed")
+    # preprocess(pd.read_json("../data/exploration/exploration.json", lines=True), "exploration", output_folder="../data/preprocessed")
 

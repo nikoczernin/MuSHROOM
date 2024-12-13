@@ -10,7 +10,7 @@ from sklearn.model_selection import KFold
 
 from baseline_utils import get_data_for_training
 
-import wandb
+# import wandb
 
 import warnings
 
@@ -19,7 +19,21 @@ warnings.filterwarnings('ignore')  # "error", "ignore", "always", "default", "mo
 
 # Helper class for all hyper-parameters
 class Args:
-    pass
+    def __init__(self):
+        self.MAX_LENGTH = 128 * 2  # Max token length for mBERT
+        # Set device
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.max_epochs = 100
+        self.patience = 3
+        self.early_stopping = True
+        self.TOKENIZER_MODEL_NAME = None
+        self.tokenizer = None
+        self.optimizer = None
+        self.loss_fn = None
+        self.model_name = None
+        self.data_path = None
+        self.learning_rate = 2e-5
+        self.log = False
 
 
 # Dataset class to handle features and labels for token classification
@@ -88,7 +102,10 @@ def train_model(training_model, dataloader, args):
     # Step 5: Training loop
     training_model.train()
     print("Training started!")
-    for epoch in range(args.num_epochs):  # Number of epochs
+    previous_loss = np.inf
+    patience = args.patience
+    stop = False
+    for epoch in range(args.max_epochs):  # Maximum number of epochs
         total_loss = 0
         for batch in dataloader:
             # Move data to device
@@ -105,12 +122,27 @@ def train_model(training_model, dataloader, args):
             loss.backward()
             args.optimizer.step()
             total_loss += loss.item()
+
         print(f"Epoch {epoch + 1}, Loss: {total_loss / len(dataloader)}")
+
+        # if the loss did not improve, test the patience
+        if total_loss >= previous_loss:
+            if patience <= 0 and args.early_stopping:
+                print(f" ====> Early stopping at epoch {epoch + 1}")
+                stop = True
+            else:
+                patience -= 1
+                print(f"Patience reduced to {patience}")
+        # (re)assign the previous loss to the current loss
+        previous_loss = total_loss
+        if stop: break
+
     print("Training complete!")
     # Step 6: Save the model
     training_model.save_pretrained(args.model_name)
     args.tokenizer.save_pretrained("mbert_token_classifier")
     print("Model and tokenizer saved!")
+    return epoch
 
 
 def inference(inference_model, dataloader, args, flatten_output=False):
@@ -308,17 +340,13 @@ def conduct_test(ARGS=None):
     5. Perform inference on the test dataset.
     6. Evaluate model performance using precision, recall, F1-score, and accuracy.
     """
-    if ARGS is None:
-        ARGS = Args()
 
-
-    features, labels = get_data_for_training('../data/preprocessed/sample_preprocessed.json')
+    features, labels = get_data_for_training(ARGS.data_path)
     print("Data is prepared!")
 
     # Define constants
     ARGS.TOKENIZER_MODEL_NAME = "bert-base-multilingual-cased"
 
-    ARGS.MAX_LENGTH = 128 * 2  # Max token length for mBERT # TODO: is this variable?
 
     print("Loading tokenizer and model...")
     ARGS.tokenizer = BertTokenizer.from_pretrained(ARGS.TOKENIZER_MODEL_NAME)
@@ -333,37 +361,35 @@ def conduct_test(ARGS=None):
     print("Datasets and dataloaders created!")
 
     # Training setup
-    ARGS.optimizer = AdamW(model.parameters(), lr=2e-5)
+    ARGS.optimizer = AdamW(model.parameters(), lr=ARGS.learning_rate)
     # Define optimizer and loss function
     ARGS.loss_fn = CrossEntropyLoss()
-    # Set device
-    ARGS.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Device: {ARGS.device}")
     ARGS.model_name = "mbert_token_classifier"
-    ARGS.num_epochs = 3
 
-
-    # start a new wandb run to track this script
-    wandb.init(
-        # set the wandb project where this run will be logged
-        project="MuSHROOM",
-        # track hyperparameters and run metadata
-        config={
-            "dataset": "sample",
-            "architecture": "Baseline mBERT (query & response sequence classification)",
-            "model": ARGS.model_name,
-            "tokenizer": ARGS.TOKENIZER_MODEL_NAME,
-            "device": ARGS.model_name,
-            "loss_function": ARGS.loss_fn,
-            "optimizer": ARGS.optimizer,
-            "max_length": ARGS.MAX_LENGTH,
-            "num_epochs": ARGS.num_epochs,
-        }
-    )
-
+    if ARGS.log:
+        # start a new wandb run to track this script
+        wandb.init(
+            # set the wandb project where this run will be logged
+            project="MuSHROOM",
+            # track hyperparameters and run metadata
+            config={
+                "dataset": "sample",
+                "architecture": "Baseline mBERT (query & response sequence classification)",
+                "model": ARGS.model_name,
+                "tokenizer": ARGS.TOKENIZER_MODEL_NAME,
+                "device": ARGS.model_name,
+                "loss_function": ARGS.loss_fn,
+                "optimizer": ARGS.optimizer,
+                "max_length": ARGS.MAX_LENGTH,
+                "max_epochs": ARGS.max_epochs,
+                "patience": ARGS.patience,
+                "learning_rate": ARGS.learning_rate,
+            }
+        )
 
     ### TRAINING
-    train_model(model, train_loader, args=ARGS)
+    num_training_epochs = train_model(model, train_loader, args=ARGS)
 
     ### TESTING
     print("Performing inference")
@@ -390,9 +416,10 @@ def conduct_test(ARGS=None):
     for metric, value in metrics.items():
         print(f"{metric}: {value:.4f}")
 
-
-    wandb.log(metrics)
-    wandb.finish()
+    if ARGS.log:
+        wandb.log({"num_training_epochs": num_training_epochs})
+        wandb.log(metrics)
+        wandb.finish()
 
     '''
     ARGS.batch_size = 8
@@ -418,4 +445,6 @@ def conduct_test(ARGS=None):
 
 
 if __name__ == "__main__":
-    conduct_test()
+    args = Args()
+    args.data_path = '../data/preprocessed/sample_preprocessed.json'
+    conduct_test(args)
