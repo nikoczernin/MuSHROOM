@@ -465,5 +465,5 @@ def conduct_test(ARGS=None):
 if __name__ == "__main__":
     args = Args()
     args.data_path = '../data/preprocessed/val_preprocessed.json'
-    args.data_path = '../data/output/val_predictions_mbert1.json'
+    args.data_path = '../data/output/val_predictions_mbert1.csv'
     conduct_test(args)
