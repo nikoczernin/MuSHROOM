@@ -261,11 +261,15 @@ def get_evaluation_data(dataloader, predictions, tokenizer, DEBUG=False, include
                 response_labels = response_labels[:padding_index]
                 if DEBUG: print("\tPredicted labels truncated for response:", response_preds)
                 if DEBUG: print("\tActual labels truncated for response:", response_labels)
+
+            if len(response_preds) != len(response_labels):
+                raise Exception(f"Size of labels and predictions do not match on row {i}!")
             predicted_labels.append(response_preds)
             true_labels.append(response_labels)
 
     if len(true_labels) != len(predicted_labels):
         raise Exception("Size of labels and predictions do not match!")
+
     return true_labels, predicted_labels
 
 
@@ -355,7 +359,7 @@ def cross_validate_model(features, labels, tokenizer, model, args, num_folds=5):
     return avg_metrics
 
 
-def training_testing(ARGS=None):
+def training_testing(ARGS=None, test=True):
     """
     Main function to train and test the mBERT model for hallucination detection.
     - ARGS: Optional arguments object. If None, a new Args instance is created.
@@ -368,7 +372,6 @@ def training_testing(ARGS=None):
     5. Perform inference on the test dataset.
     6. Evaluate model performance using precision, recall, F1-score, and accuracy.
     """
-    # TODO: set the cwd to this file
     os.chdir(os.getcwd())
     features, labels = get_data_for_NN(ARGS.data_path, max_length=ARGS.MAX_LENGTH,
                                        split_overflow=ARGS.split_overflow,
@@ -418,7 +421,7 @@ def training_testing(ARGS=None):
             project="MuSHROOM",
             # track hyperparameters and run metadata
             config={
-                "dataset": "sample",
+                "dataset": ARGS.data_path,
                 "architecture": "Baseline mBERT (query & response sequence classification)",
                 "model": ARGS.model_name,
                 "tokenizer": ARGS.TOKENIZER_MODEL_NAME,
@@ -434,6 +437,13 @@ def training_testing(ARGS=None):
 
     ### TRAINING
     num_training_epochs = train_model(model, train_loader, args=ARGS)
+
+    if ARGS.log:
+        wandb.log({"num_training_epochs": num_training_epochs})
+        wandb.log(metrics)
+        wandb.finish()
+
+    if not test: return
 
     ### TESTING
     print("Performing inference")
@@ -451,8 +461,6 @@ def training_testing(ARGS=None):
     # Exclude. Padding tokens & Special tokens like [CLS] and [SEP]
 
     y, yhat = get_evaluation_data(test_loader, predictions, tokenizer=ARGS.tokenizer, DEBUG=False)
-    print(y[0])
-    print(yhat[0])
 
     # if required, save the prediction data to a file
     if args.output_path is not None:
@@ -466,11 +474,6 @@ def training_testing(ARGS=None):
     print("Evaluation Metrics:")
     for metric, value in metrics.items():
         print(f"{metric}: {value:.4f}")
-
-    if ARGS.log:
-        wandb.log({"num_training_epochs": num_training_epochs})
-        wandb.log(metrics)
-        wandb.finish()
 
     '''
     ARGS.batch_size = 8
@@ -541,7 +544,6 @@ def testing(ARGS=None):
     print("Dataset and dataloader created!")
 
     ARGS.model_name = "mbert_token_classifier"
-    ARGS.model_path = "./mbert_token_classifier/"
     # Load the trained model
     model = BertForTokenClassification.from_pretrained(ARGS.model_path, num_labels=2)
     model.to(ARGS.device)
@@ -553,15 +555,11 @@ def testing(ARGS=None):
             project="MuSHROOM",
             # track hyperparameters and run metadata
             config={
-                "dataset": "sample",
                 "architecture": "Baseline mBERT (query & response sequence classification)",
-                "model": ARGS.model_name,
+                "model": ARGS.model_path if ARGS.model_path is not None else ARGS.model_name,
                 "tokenizer": ARGS.TOKENIZER_MODEL_NAME,
-                "device": ARGS.model_name,
+                "device": ARGS.device,
                 "max_length": ARGS.MAX_LENGTH,
-                "max_epochs": ARGS.max_epochs,
-                "patience": ARGS.patience,
-                "learning_rate": ARGS.learning_rate,
             }
         )
 
@@ -581,6 +579,7 @@ def testing(ARGS=None):
     # Exclude. Padding tokens & Special tokens like [CLS] and [SEP]
 
     y, yhat = get_evaluation_data(test_loader, predictions, tokenizer=ARGS.tokenizer, DEBUG=False)
+    print(y, yhat)
 
     # if required, save the prediction data to a file
     if args.output_path is not None:
@@ -596,7 +595,6 @@ def testing(ARGS=None):
         print(f"{metric}: {value:.4f}")
 
     if ARGS.log:
-        wandb.log({"num_training_epochs": num_training_epochs})
         wandb.log(metrics)
         wandb.finish()
 
@@ -607,5 +605,6 @@ if __name__ == "__main__":
     args = Args()
     args.data_path = '../data/preprocessed/val_preprocessed.json'
     args.output_path = '../data/output/val_predictions_mbert2.csv'
-    training_testing(args)
-    # testing(args)
+    args.model_path = "./mbert_token_classifier_split/"
+    # training_testing(args)
+    testing(args)

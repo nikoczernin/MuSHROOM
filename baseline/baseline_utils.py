@@ -28,10 +28,16 @@ def timer(func):
     return wrapper
 
 
+
 @timer
-def get_data_for_NN(datapath, include_POS=False, max_length=512,  ignore_label=-100,
-                    truncate_overflow=True, skip_overflowing_query=False, skip_overflowing_observation=False,
-                    split_overflow=False):
+def get_data_for_NN(datapath, include_POS=False,
+                    max_length=512,
+                    ignore_label=-100,
+                    truncate_overflow=True,
+                    skip_overflowing_query=False,
+                    skip_overflowing_observation=False,
+                    split_overflow=False
+                    ):
     # for each observation in the data, we want to create two training objects, saved in separate lists
     # 1: the features
     # 2: the labels
@@ -56,7 +62,7 @@ def get_data_for_NN(datapath, include_POS=False, max_length=512,  ignore_label=-
         # the ith token should correspond with the ith label
         # the label of this response is a list of binary labels (1 for hallucatinations)
         label_sequence = []
-        
+
         query = obj.get("model_input")
         # the feature of this observation is the query and the response
         # keep separate variable for both components of the feature
@@ -93,7 +99,8 @@ def get_data_for_NN(datapath, include_POS=False, max_length=512,  ignore_label=-
             if skip_overflowing_query:
                 feature_query = "[CLS] [SEP]"
             # we can skip an entire observation if it is overflowing
-            if skip_overflowing_observation: continue
+            if skip_overflowing_observation:
+                continue
             # we can truncate the data to fit within max_length
             elif truncate_overflow:
                 feature = feature_query
@@ -119,7 +126,7 @@ def get_data_for_NN(datapath, include_POS=False, max_length=512,  ignore_label=-
                     if len(feature) + 1 + len(token) >= max_length:
                         # save this observation
                         features.append(feature)
-                        labels.append(label_sequence[i:j+1])
+                        labels.append(label_sequence[i:j + 1])
                         # reset the feature in case there is another iteration coming
                         feature = feature_query
                         # the current word is being skipped, if we dont append it to the feature now
@@ -134,7 +141,7 @@ def get_data_for_NN(datapath, include_POS=False, max_length=512,  ignore_label=-
                     i = j + 1
                 # save the last data in the lists
                 features.append(feature)
-                labels.append(label_sequence[i:j+1])
+                labels.append(label_sequence[i:j + 1])
                 # skip the rest of the loop
                 continue
         # save the data in the lists
