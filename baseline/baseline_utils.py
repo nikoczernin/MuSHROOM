@@ -46,11 +46,11 @@ def get_data_for_NN(datapath, include_POS=False, max_length=512,  ignore_label=-
 
     # read the json of the preprocessed data
     with open(datapath) as f:
-        sample = json.load(f)
+        data = json.load(f)
 
     features = []
     labels = []
-    for obj in sample:
+    for sample_nr, obj in enumerate(data):
         # now create a new object for each preprocessing mode output token and append it to the long_data list
         # we iterate over the processed token objects, with the iterating number being i
         # the ith token should correspond with the ith label
@@ -120,8 +120,6 @@ def get_data_for_NN(datapath, include_POS=False, max_length=512,  ignore_label=-
                         # save this observation
                         features.append(feature)
                         labels.append(label_sequence[i:j+1])
-                        # set the left index to the next index in case there is another iteration coming
-                        i = j + 1
                         # reset the feature in case there is another iteration coming
                         feature = feature_query
                         # the current word is being skipped, if we dont append it to the feature now
@@ -132,6 +130,13 @@ def get_data_for_NN(datapath, include_POS=False, max_length=512,  ignore_label=-
                     else:
                         # add the token to the feature
                         feature += " " + token
+                    # set the left index to the next index in case there is another iteration coming
+                    i = j + 1
+                # save the last data in the lists
+                features.append(feature)
+                labels.append(label_sequence[i:j+1])
+                # skip the rest of the loop
+                continue
         # save the data in the lists
         features.append(feature)
         labels.append(label_sequence)
@@ -140,3 +145,25 @@ def get_data_for_NN(datapath, include_POS=False, max_length=512,  ignore_label=-
         raise Exception("The number of features and labels do not match!")
 
     return features, labels
+
+
+import torch
+import numpy as np
+import random
+
+
+def set_seed(seed: int):
+    """
+    Sets the seed for reproducibility across multiple libraries.
+    Args:
+        seed (int): The seed value to set.
+    """
+    random.seed(seed)  # Set seed for Python's built-in random module
+    np.random.seed(seed)  # Set seed for NumPy
+    torch.manual_seed(seed)  # Set seed for PyTorch on CPU
+    torch.cuda.manual_seed(seed)  # Set seed for PyTorch on the current GPU
+    torch.cuda.manual_seed_all(seed)  # Set seed for all GPUs (if using multiple GPUs)
+
+    # Ensure deterministic behavior for reproducible results
+    torch.backends.cudnn.deterministic = True  # Forces CUDA to use deterministic algorithms
+    torch.backends.cudnn.benchmark = False  # Disables optimization that can introduce randomness

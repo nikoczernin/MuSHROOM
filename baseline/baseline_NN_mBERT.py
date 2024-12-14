@@ -12,7 +12,7 @@ from torch.nn import CrossEntropyLoss
 from sklearn.metrics import precision_score, recall_score, f1_score, accuracy_score
 from sklearn.model_selection import KFold
 
-from baseline_utils import get_data_for_NN
+from baseline_utils import get_data_for_NN, set_seed
 
 from time import time as get_time
 # import wandb
@@ -21,6 +21,7 @@ import warnings
 
 warnings.filterwarnings('ignore')  # "error", "ignore", "always", "default", "module" or "once"
 
+set_seed(42)
 
 # Helper class for all hyperparameters
 class Args:
@@ -76,7 +77,10 @@ class HallucinationDataset(Dataset):
         """
         feature = self.features[idx]
         labels = self.labels[idx]
-
+        if len(feature) > self.max_length:
+            raise ValueError(f"Length of feature ({len(feature)}) exceeds max_length ({self.max_length})")
+        if len(labels) > self.max_length:
+            raise ValueError(f"Length of labels ({len(labels)}) exceeds max_length ({self.max_length})")
         # Tokenize input text
         encoded = self.tokenizer(
             feature,
@@ -376,9 +380,14 @@ def training_testing(ARGS=None):
     for i in range(len(features)):
         if len(features[i].split()) > max_len:
             max_len = len(features[i])
+    for i in range(len(labels)):
+        if len(labels[i]) > max_len:
+            max_len = len(labels[i])
+        if len(labels[i]) == 374:
+            print(i, labels[i])
 
     print("Number of observations:", len(features), "*", len(labels))
-    print("Maximum length of features:", max_len)
+    print("Maximum length of features or labels:", max_len)
 
     # Define constants
     ARGS.TOKENIZER_MODEL_NAME = "bert-base-multilingual-cased"
