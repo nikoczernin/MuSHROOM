@@ -34,6 +34,7 @@ class Args:
         self.patience = 3
         self.early_stopping = True
         self.learning_rate = 2e-5
+        self.batch_size = 8
 
         self.TOKENIZER_MODEL_NAME = None
         self.tokenizer = None
@@ -45,9 +46,9 @@ class Args:
         # Wandb logging
         self.log = False
         # Handling of data size exceeding the maximum length
-        self.split_overflow = True
+        self.split_overflow = False
         self.truncate_overflow = False
-        self.skip_overflowing_observation = False
+        self.skip_overflowing_observation = True
 
 
 # Dataset class to handle features and labels for token classification
@@ -309,7 +310,7 @@ def evaluate_predictions(y, yhat, labels_ignore=[-100]):
     return metrics
 
 
-def cross_validate_model(features, labels, tokenizer, model, args, num_folds=5):
+def cross_validate_model(features, labels, ARGS, num_folds=5):
     """
     Performs k-fold cross-validation on the dataset.
 
@@ -331,22 +332,27 @@ def cross_validate_model(features, labels, tokenizer, model, args, num_folds=5):
         print(f"Fold {fold + 1}/{num_folds}")
 
         # Create train/test datasets and dataloaders
-        train_dataset = Subset(HallucinationDataset(features, labels, tokenizer, args.max_length), train_idx)
-        test_dataset = Subset(HallucinationDataset(features, labels, tokenizer, args.max_length), test_idx)
-        train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
-        test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False)
+        train_dataset = Subset(HallucinationDataset(features, labels, ARGS.tokenizer, ARGS.MAX_LENGTH), train_idx)
+        test_dataset = Subset(HallucinationDataset(features, labels, ARGS.tokenizer, ARGS.MAX_LENGTH), test_idx)
+        train_loader = DataLoader(train_dataset, batch_size=ARGS.batch_size, shuffle=True)
+        test_loader = DataLoader(test_dataset, batch_size=ARGS.batch_size, shuffle=False)
 
         # Reinitialize model for each fold
-        model_copy = BertForTokenClassification.from_pretrained(args.model_name, num_labels=2)
-        model_copy.to(args.device)
-        optimizer = AdamW(model_copy.parameters(), lr=args.learning_rate)
+        model = BertForTokenClassification.from_pretrained(ARGS.TOKENIZER_MODEL_NAME, num_labels=2)
+        model.to(ARGS.device)
+        # Training setup
+        ARGS.optimizer = AdamW(model.parameters(), lr=ARGS.learning_rate)
+        # Define optimizer and loss function
+        ARGS.loss_fn = CrossEntropyLoss()
+        print(f"Device: {ARGS.device}")
+        ARGS.model_name = "mbert_token_classifier"
 
         # Train the model
-        train_model(model_copy, train_loader, args)
+        train_model(model, train_loader, ARGS)
 
         # Evaluate on the test fold
-        predictions = inference(model_copy, test_loader, args, flatten_output=True)
-        y, yhat = get_evaluation_data(test_loader, predictions, tokenizer)
+        predictions = inference(model, test_loader, ARGS, flatten_output=True)
+        y, yhat = get_evaluation_data(test_loader, predictions, ARGS.tokenizer)
         metrics = evaluate_predictions(y, yhat)
         fold_metrics.append(metrics)
 
@@ -389,7 +395,7 @@ def training_testing(ARGS=None, test=True):
         if len(labels[i]) == 374:
             print(i, labels[i])
 
-    print("Number of observations:", len(features), "*", len(labels))
+    print("Number of observations:", len(features), "|", len(labels))
     print("Maximum length of features or labels:", max_len)
 
     # Define constants
@@ -403,8 +409,8 @@ def training_testing(ARGS=None, test=True):
     # Create datasets and dataloaders
     train = HallucinationDataset(features, labels, tokenizer=ARGS.tokenizer, max_length=ARGS.MAX_LENGTH)
     test =  HallucinationDataset(features, labels, tokenizer=ARGS.tokenizer, max_length=ARGS.MAX_LENGTH)
-    train_loader = DataLoader(train, batch_size=8, shuffle=True)
-    test_loader = DataLoader(test, batch_size=8, shuffle=True)
+    train_loader = DataLoader(train, batch_size=ARGS.batch_size, shuffle=True)
+    test_loader = DataLoader(test, batch_size=ARGS.batch_size, shuffle=True)
     print("Datasets and dataloaders created!")
 
     # Training setup
@@ -566,18 +572,7 @@ def testing(ARGS=None):
     ### TESTING
     print("Performing inference")
     predictions = inference(model, test_loader, args=ARGS)
-    # The shape (total_samples, seq_len) arises because each input to
-    # the model is tokenized and padded/truncated to a fixed length
-    # (max_length, typically 128 or another specified value)
-    # The model predicts a label for every token in the sequence, including:
-    #  - Query tokens
-    #  - Response tokens
-    #  - Padding tokens
-    # How do we find the response tokens though?
-    # locate the [SEP] token, which separates the query from the response
-    # Tokens after the first [SEP] up to the end of the response are the ones you care about
-    # Exclude. Padding tokens & Special tokens like [CLS] and [SEP]
-
+    # extract the true labels and the predicted labels
     y, yhat = get_evaluation_data(test_loader, predictions, tokenizer=ARGS.tokenizer, DEBUG=False)
     print(y, yhat)
 
@@ -599,12 +594,60 @@ def testing(ARGS=None):
         wandb.finish()
 
 
+def training_testing_cv(ARGS=None, test=True):
+    os.chdir(os.getcwd())
+    features, labels = get_data_for_NN(ARGS.data_path, max_length=ARGS.MAX_LENGTH,
+                                       split_overflow=ARGS.split_overflow,
+                                       truncate_overflow=ARGS.truncate_overflow,
+                                       skip_overflowing_observation=ARGS.skip_overflowing_observation)
+    print("Data is prepared!")
+
+    # Define constants
+    ARGS.TOKENIZER_MODEL_NAME = "bert-base-multilingual-cased"
+    print("Loading tokenizer and model...")
+    ARGS.tokenizer = BertTokenizer.from_pretrained(ARGS.TOKENIZER_MODEL_NAME)
+    print("Tokenizer and model loaded!")
+    print("Starting cross-validation...")
+    avg_metrics = cross_validate_model(
+        features=features,
+        labels=labels,
+        ARGS=ARGS,
+        num_folds=5
+    )
+
+    if ARGS.log:
+        # start a new wandb run to track this script
+        wandb.init(
+            # set the wandb project where this run will be logged
+            project="MuSHROOM",
+            # track hyperparameters and run metadata
+            config={
+                "dataset": ARGS.data_path,
+                "architecture": "Baseline mBERT (query & response sequence classification)",
+                "model": ARGS.model_name,
+                "tokenizer": ARGS.TOKENIZER_MODEL_NAME,
+                "device": ARGS.model_name,
+                "loss_function": ARGS.loss_fn,
+                "optimizer": ARGS.optimizer,
+                "max_length": ARGS.MAX_LENGTH,
+                "max_epochs": ARGS.max_epochs,
+                "patience": ARGS.patience,
+                "learning_rate": ARGS.learning_rate,
+            }
+        )
+
+    # Print average metrics across all folds
+    print("Cross-validation completed. Average Metrics:")
+    for metric, value in avg_metrics.items():
+        print(f"{metric}: {value:.4f}")
 
 
 if __name__ == "__main__":
     args = Args()
     args.data_path = '../data/preprocessed/val_preprocessed.json'
     args.output_path = '../data/output/val_predictions_mbert2.csv'
-    args.model_path = "./mbert_token_classifier_split/"
+    # args.model_path = "./mbert_token_classifier_split/"
+    args.model_path = "./mbert_token_classifier_test/"
     # training_testing(args)
-    testing(args)
+    # testing(args)
+    training_testing_cv(args)
