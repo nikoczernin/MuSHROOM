@@ -28,17 +28,25 @@ class Args:
         self.MAX_LENGTH = 128 * 2  # Max token length for mBERT
         # Set device
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        # Training time handling
         self.max_epochs = 100
         self.patience = 3
         self.early_stopping = True
+        self.learning_rate = 2e-5
+
         self.TOKENIZER_MODEL_NAME = None
         self.tokenizer = None
         self.optimizer = None
         self.loss_fn = None
         self.model_name = None
+        # input data path
         self.data_path = None
-        self.learning_rate = 2e-5
+        # Wandb logging
         self.log = False
+        # Handling of data size exceeding the maximum length
+        self.split_overflow = True
+        self.truncate_overflow = False
+        self.skip_overflowing_observation = False
 
 
 # Dataset class to handle features and labels for token classification
@@ -358,13 +366,18 @@ def training_testing(ARGS=None):
     """
     # TODO: set the cwd to this file
     os.chdir(os.getcwd())
-    features, labels = get_data_for_NN(ARGS.data_path)
+    features, labels = get_data_for_NN(ARGS.data_path, max_length=ARGS.MAX_LENGTH,
+                                       split_overflow=ARGS.split_overflow,
+                                       truncate_overflow=ARGS.truncate_overflow,
+                                       skip_overflowing_observation=ARGS.skip_overflowing_observation)
     print("Data is prepared!")
     # what is the maximum length of the features and labels?
     max_len = 0
     for i in range(len(features)):
-        if len(features[i]) > max_len:
+        if len(features[i].split()) > max_len:
             max_len = len(features[i])
+
+    print("Number of observations:", len(features), "*", len(labels))
     print("Maximum length of features:", max_len)
 
     # Define constants
@@ -487,7 +500,7 @@ def testing(ARGS=None):
     6. Evaluate model performance using precision, recall, F1-score, and accuracy.
     """
     os.chdir(os.getcwd())
-    features, labels = get_data_for_NN(ARGS.data_path)
+    features, labels = get_data_for_NN(ARGS.data_path, max_length=ARGS.MAX_LENGTH)
     print("Data is prepared!")
     print("Lengths of data:", len(features), len(labels))
 
