@@ -1,4 +1,6 @@
+import json
 import os
+from pprint import pprint
 
 import numpy as np
 
@@ -10,7 +12,7 @@ from torch.nn import CrossEntropyLoss
 from sklearn.metrics import precision_score, recall_score, f1_score, accuracy_score
 from sklearn.model_selection import KFold
 
-from baseline_utils import get_data_for_training
+from baseline_utils import get_data_for_NN
 
 from time import time as get_time
 # import wandb
@@ -155,7 +157,7 @@ def train_model(training_model, dataloader, args):
     return epoch
 
 
-def inference(inference_model, dataloader, args, flatten_output=False):
+def inference(inference_model, dataloader, args, flatten_output=False, binary_output=True):
     """
     Performs inference to predict token labels for the input data.
     - inference_model: Trained model for inference.
@@ -164,7 +166,7 @@ def inference(inference_model, dataloader, args, flatten_output=False):
             inference(model, batch["input_ids"])
     - dataloader: DataLoader providing batches of input data.
     - args: Arguments object specifying device for inference.
-    - flatten_output: Whether to return predictions as a single concatenated array.
+    - flatten_output: Whether to return predictions as a single concatenated array. Not recommended.
 
     Returns:
     - all_predictions: Predicted labels for each token in the input.
@@ -180,7 +182,11 @@ def inference(inference_model, dataloader, args, flatten_output=False):
         # the logits should be the probabilities of all classes for each observation
         # and therefore have shape (num_obs_in_batch, size_feature_space, num_class_labels)
         # Convert logits to predicted labels
-        preds = torch.argmax(output.logits, dim=-1)  # Shape: [num_obs_in_batch, size_feature_space]
+        # Shape: [num_obs_in_batch, size_feature_space]
+        if binary_output:
+            preds = torch.argmax(output.logits, dim=-1)
+        else:
+            preds = output.logits
         all_predictions.append(preds.cpu())
     if flatten_output:
         all_predictions = torch.cat(all_predictions, dim=0)  # Shape: (total_num_samples, seq_len)
@@ -251,7 +257,7 @@ def get_evaluation_data(dataloader, predictions, tokenizer, DEBUG=False, include
     return true_labels, predicted_labels
 
 
-def evaluate_model(y, yhat, labels_ignore=[-100]):
+def evaluate_predictions(y, yhat, labels_ignore=[-100]):
     """
     Evaluates the model's performance using precision, recall, F1-score, and accuracy.
 
@@ -325,7 +331,7 @@ def cross_validate_model(features, labels, tokenizer, model, args, num_folds=5):
         # Evaluate on the test fold
         predictions = inference(model_copy, test_loader, args, flatten_output=True)
         y, yhat = get_evaluation_data(test_loader, predictions, tokenizer)
-        metrics = evaluate_model(y, yhat)
+        metrics = evaluate_predictions(y, yhat)
         fold_metrics.append(metrics)
 
     # Aggregate metrics across folds
@@ -337,7 +343,7 @@ def cross_validate_model(features, labels, tokenizer, model, args, num_folds=5):
     return avg_metrics
 
 
-def conduct_test(ARGS=None):
+def training_testing(ARGS=None):
     """
     Main function to train and test the mBERT model for hallucination detection.
     - ARGS: Optional arguments object. If None, a new Args instance is created.
@@ -352,12 +358,17 @@ def conduct_test(ARGS=None):
     """
     # TODO: set the cwd to this file
     os.chdir(os.getcwd())
-    features, labels = get_data_for_training(ARGS.data_path)
+    features, labels = get_data_for_NN(ARGS.data_path)
     print("Data is prepared!")
+    # what is the maximum length of the features and labels?
+    max_len = 0
+    for i in range(len(features)):
+        if len(features[i]) > max_len:
+            max_len = len(features[i])
+    print("Maximum length of features:", max_len)
 
     # Define constants
     ARGS.TOKENIZER_MODEL_NAME = "bert-base-multilingual-cased"
-
 
     print("Loading tokenizer and model...")
     ARGS.tokenizer = BertTokenizer.from_pretrained(ARGS.TOKENIZER_MODEL_NAME)
@@ -366,7 +377,7 @@ def conduct_test(ARGS=None):
 
     # Create datasets and dataloaders
     train = HallucinationDataset(features, labels, tokenizer=ARGS.tokenizer, max_length=ARGS.MAX_LENGTH)
-    test = HallucinationDataset(features, labels, tokenizer=ARGS.tokenizer, max_length=ARGS.MAX_LENGTH)
+    test =  HallucinationDataset(features, labels, tokenizer=ARGS.tokenizer, max_length=ARGS.MAX_LENGTH)
     train_loader = DataLoader(train, batch_size=8, shuffle=True)
     test_loader = DataLoader(test, batch_size=8, shuffle=True)
     print("Datasets and dataloaders created!")
@@ -428,7 +439,7 @@ def conduct_test(ARGS=None):
             for i in range(len(y)):
                 f.write(f"{y[i]};{yhat[i]}\n")
 
-    metrics = evaluate_model(y, yhat)
+    metrics = evaluate_predictions(y, yhat)
 
     print("Evaluation Metrics:")
     for metric, value in metrics.items():
@@ -462,8 +473,117 @@ def conduct_test(ARGS=None):
     '''
 
 
+def testing(ARGS=None):
+    """
+    Main function to train and test the mBERT model for hallucination detection.
+    - ARGS: Optional arguments object. If None, a new Args instance is created.
+
+    Steps:
+    1. Load preprocessed data
+    2. Initialize tokenizer
+    3. Create DataLoader for dataset.
+    4. Load trained model.
+    5. Perform inference on the dataset.
+    6. Evaluate model performance using precision, recall, F1-score, and accuracy.
+    """
+    os.chdir(os.getcwd())
+    features, labels = get_data_for_NN(ARGS.data_path)
+    print("Data is prepared!")
+    print("Lengths of data:", len(features), len(labels))
+
+    # open the json data from ARGS.data_path
+    with open(ARGS.data_path, "r") as f:
+        data = json.load(f)
+    print("Length of JSON data:", len(data))
+    # i have the suspicion that the training data has a row for each sentence in the json data
+    # count the numnber of arrays in the data.model_output_text_processed
+    total = 0
+    for row in data:
+        total += len(row["model_output_text_processed"])
+    print("Total number of sentences in the JSON data:", total)
+
+
+    # Define constants
+    ARGS.TOKENIZER_MODEL_NAME = "bert-base-multilingual-cased"
+
+    print("Loading tokenizer and model...")
+    ARGS.tokenizer = BertTokenizer.from_pretrained(ARGS.TOKENIZER_MODEL_NAME)
+    print("Tokenizer loaded!")
+    # model = BertForTokenClassification.from_pretrained(ARGS.TOKENIZER_MODEL_NAME, num_labels=2)
+    # TODO: Load the trained model
+    print("Model loaded!")
+
+    # Create dataset and dataloader
+    test =  HallucinationDataset(features, labels, tokenizer=ARGS.tokenizer, max_length=ARGS.MAX_LENGTH)
+    test_loader = DataLoader(test, batch_size=8, shuffle=True)
+    print("Dataset and dataloader created!")
+
+    ARGS.model_name = "mbert_token_classifier"
+    ARGS.model_path = "./mbert_token_classifier/"
+    # Load the trained model
+    model = BertForTokenClassification.from_pretrained(ARGS.model_path, num_labels=2)
+    model.to(ARGS.device)
+
+    if ARGS.log:
+        # start a new wandb run to track this script
+        wandb.init(
+            # set the wandb project where this run will be logged
+            project="MuSHROOM",
+            # track hyperparameters and run metadata
+            config={
+                "dataset": "sample",
+                "architecture": "Baseline mBERT (query & response sequence classification)",
+                "model": ARGS.model_name,
+                "tokenizer": ARGS.TOKENIZER_MODEL_NAME,
+                "device": ARGS.model_name,
+                "max_length": ARGS.MAX_LENGTH,
+                "max_epochs": ARGS.max_epochs,
+                "patience": ARGS.patience,
+                "learning_rate": ARGS.learning_rate,
+            }
+        )
+
+    ### TESTING
+    print("Performing inference")
+    predictions = inference(model, test_loader, args=ARGS)
+    # The shape (total_samples, seq_len) arises because each input to
+    # the model is tokenized and padded/truncated to a fixed length
+    # (max_length, typically 128 or another specified value)
+    # The model predicts a label for every token in the sequence, including:
+    #  - Query tokens
+    #  - Response tokens
+    #  - Padding tokens
+    # How do we find the response tokens though?
+    # locate the [SEP] token, which separates the query from the response
+    # Tokens after the first [SEP] up to the end of the response are the ones you care about
+    # Exclude. Padding tokens & Special tokens like [CLS] and [SEP]
+
+    y, yhat = get_evaluation_data(test_loader, predictions, tokenizer=ARGS.tokenizer, DEBUG=False)
+
+    # if required, save the prediction data to a file
+    if args.output_path is not None:
+        with open(args.output_path, "w") as f:
+            f.write("True;Predicted\n")
+            for i in range(len(y)):
+                f.write(f"{y[i]};{yhat[i]}\n")
+
+    metrics = evaluate_predictions(y, yhat)
+
+    print("Evaluation Metrics:")
+    for metric, value in metrics.items():
+        print(f"{metric}: {value:.4f}")
+
+    if ARGS.log:
+        wandb.log({"num_training_epochs": num_training_epochs})
+        wandb.log(metrics)
+        wandb.finish()
+
+
+
+
 if __name__ == "__main__":
     args = Args()
     args.data_path = '../data/preprocessed/val_preprocessed.json'
-    args.data_path = '../data/output/val_predictions_mbert1.csv'
-    conduct_test(args)
+    args.output_path = '../data/output/val_predictions_mbert2.csv'
+    training_testing(args)
+    # testing(args)

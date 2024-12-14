@@ -5,7 +5,7 @@ from sklearn.model_selection import train_test_split
 import torch.optim as optim
 import torch.nn as nn
 
-from baseline.baseline_utils import timer, get_data_for_training
+from baseline.baseline_utils import timer, get_data_for_NN
 from baseline.baseline_models import HallucinationBaselineNN
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix
 
@@ -157,7 +157,7 @@ def main(hidden_dim1: int = 64,
          epochs: int = 20,
          batch_size: int = 32,
          learning_rate: float = 0.001):
-    features, labels = get_data_for_training()
+    features, labels = get_data_for_NN()
     X = encode_features(features)
     y = np.array(labels)
 
