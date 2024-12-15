@@ -166,6 +166,7 @@ cython_debug/
 /data/train/*
 /data/sample/*
 /data/val/*
+/data/exploration/*
 
 # notes file
 notes.txt

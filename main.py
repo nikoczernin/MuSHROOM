@@ -3,6 +3,6 @@
 from preprocess.preprocess import preprocess_project
 
 if __name__ == "__main__":
-    preprocess_project()
-
+    # preprocess_project()
+    print("We recommend running the scripts of the baselines themselves :)")
 
