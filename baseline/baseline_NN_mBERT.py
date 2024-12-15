@@ -46,9 +46,9 @@ class Args:
         # Wandb logging
         self.log = False
         # Handling of data size exceeding the maximum length
-        self.split_overflow = False
+        self.split_overflow = True
         self.truncate_overflow = False
-        self.skip_overflowing_observation = True
+        self.skip_overflowing_observation = False
 
 
 # Dataset class to handle features and labels for token classification
@@ -123,6 +123,7 @@ def train_model(training_model, dataloader, args):
     best_total_loss = np.inf
     patience = args.patience
     stop = False
+    start = get_time()
     for epoch in range(args.max_epochs):  # Maximum number of epochs
         t = get_time()
         total_loss = 0
@@ -162,7 +163,7 @@ def train_model(training_model, dataloader, args):
             best_total_loss = total_loss
         if stop: break
 
-    print("Training complete!")
+    print(f"Training complete! Total time taken: {get_time() - start} seconds.")
     # Step 6: Save the model
     training_model.save_pretrained(args.model_name)
     args.tokenizer.save_pretrained("mbert_token_classifier")
@@ -351,7 +352,7 @@ def cross_validate_model(features, labels, ARGS, num_folds=5):
         train_model(model, train_loader, ARGS)
 
         # Evaluate on the test fold
-        predictions = inference(model, test_loader, ARGS, flatten_output=True)
+        predictions = inference(model, test_loader, ARGS)
         y, yhat = get_evaluation_data(test_loader, predictions, ARGS.tokenizer)
         metrics = evaluate_predictions(y, yhat)
         fold_metrics.append(metrics)
