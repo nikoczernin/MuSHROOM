@@ -73,7 +73,8 @@ Scripts and documentation for preprocessing data.
 
 ### **Root Files**
 - **`main.py`**: Entry point to run the project, combining preprocessing, training, and evaluation.
-- **`NLP_IE_2024WS_Exercise.pdf`**: Project or exercise description file.
+- **`main.py`**: Entry point to run the project, combining preprocessing, training, and evaluation.
+- **`NLP_Milestone_2.pdf`**: Report for Milestone 2.
 - **`README.md`**: This file, explaining the project and file structure.
 - **`requirements.txt`**: List of required Python libraries.
 
