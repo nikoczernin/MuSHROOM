@@ -1,6 +1,11 @@
 import json
 from functools import wraps
 import time
+import torch
+import numpy as np
+import random
+
+from sklearn.metrics import precision_score, recall_score, f1_score, accuracy_score
 
 
 def timer(func):
@@ -69,7 +74,7 @@ def get_data_for_NN(datapath, include_POS=False,
         feature_query = ""
         feature_response = []
         # if the query is too long we may want to avoid using it in the features
-        feature_query += f"[CLS] {query} [SEP]"
+        feature_query += f"{query} [SEP]"
         # keep a flag for cancellation in case of truncation overflow strategy
         break_loop = False
         # keep a flag for wrapping up in case of wrapping overflow strategy
@@ -97,7 +102,7 @@ def get_data_for_NN(datapath, include_POS=False,
         else:
             # we can optionally skip the query if were overflowing
             if skip_overflowing_query:
-                feature_query = "[CLS] [SEP]"
+                feature_query = "[SEP]"
             # we can skip an entire observation if it is overflowing
             if skip_overflowing_observation:
                 continue
@@ -107,7 +112,7 @@ def get_data_for_NN(datapath, include_POS=False,
                 # only add tokens to the response until the max_length is reached
                 for i, token in enumerate(feature_response):
                     if len(feature) + 1 + len(token) < max_length:
-                        feature += token
+                        feature += " " + token
                     else:
                         break
                 # since we can only add until the ith token to the sequence before reaching max_length
@@ -154,11 +159,6 @@ def get_data_for_NN(datapath, include_POS=False,
     return features, labels
 
 
-import torch
-import numpy as np
-import random
-
-
 def set_seed(seed: int):
     """
     Sets the seed for reproducibility across multiple libraries.
@@ -174,3 +174,41 @@ def set_seed(seed: int):
     # Ensure deterministic behavior for reproducible results
     torch.backends.cudnn.deterministic = True  # Forces CUDA to use deterministic algorithms
     torch.backends.cudnn.benchmark = False  # Disables optimization that can introduce randomness
+
+
+
+
+def evaluate_predictions(y, yhat, labels_ignore=[-100]):
+    """
+    Evaluates the model's performance using precision, recall, F1-score, and accuracy.
+
+    Inputs:
+    - y: List of arrays with true labels for response tokens.
+    - yhat: List of arrays with predicted labels for response tokens.
+    - labels_ignore: List of labels to exclude during evaluation (e.g., padding token `-100`).
+
+    Outputs:
+    - metrics: Dictionary containing precision, recall, F1-score, and accuracy.
+    """
+    # Flatten lists of arrays
+    y_flat = np.concatenate(y).flatten()
+    yhat_flat = np.concatenate(yhat).flatten()
+
+    # Filter out ignored labels (like padding)
+    valid_indices = np.isin(y_flat, labels_ignore, invert=True)
+    y_filtered = y_flat[valid_indices]
+    yhat_filtered = yhat_flat[valid_indices]
+
+    # Compute metrics
+    precision = precision_score(y_filtered, yhat_filtered, average="binary")
+    recall = recall_score(y_filtered, yhat_filtered, average="binary")
+    f1 = f1_score(y_filtered, yhat_filtered, average="binary")
+    accuracy = accuracy_score(y_filtered, yhat_filtered)
+
+    metrics = {
+        "Precision": precision,
+        "Recall": recall,
+        "F1-Score": f1,
+        "Accuracy": accuracy,
+    }
+    return metrics

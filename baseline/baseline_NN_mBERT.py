@@ -9,13 +9,14 @@ from transformers import BertTokenizer, BertForTokenClassification
 import torch
 from torch.utils.data import DataLoader, Dataset, Subset
 from torch.nn import CrossEntropyLoss
-from sklearn.metrics import precision_score, recall_score, f1_score, accuracy_score
 from sklearn.model_selection import KFold
 
 from baseline_utils import get_data_for_NN, set_seed
 
 from time import time as get_time
 # import wandb
+
+from baseline_utils import evaluate_predictions
 
 import warnings
 
@@ -45,6 +46,7 @@ class Args:
         self.data_path = None
         # Wandb logging
         self.log = False
+        self.DEBUG = False
         # Handling of data size exceeding the maximum length
         self.split_overflow = True
         self.truncate_overflow = False
@@ -232,6 +234,7 @@ def get_evaluation_data(dataloader, predictions, tokenizer, DEBUG=False, include
         - Filters out padding (`-100` labels) and query tokens, focusing only on response tokens.
         - Returns data ready for token-level evaluation metrics (e.g., precision, recall, F1).
     """
+    feature_tokens = []
     true_labels = []  # Store true labels for evaluation
     predicted_labels = []  # Store predicted labels for evaluation
     for batch_idx, batch in enumerate(dataloader):
@@ -245,6 +248,7 @@ def get_evaluation_data(dataloader, predictions, tokenizer, DEBUG=False, include
         for i in range(input_ids.shape[0]):
             # Get the tokenized text
             tokens = tokenizer.convert_ids_to_tokens(input_ids[i])
+            feature_tokens.append(tokens)
             if DEBUG: print(f"Current row: {i + (batch_idx + 1) * input_ids.shape[0]}")
             if DEBUG: print(f"\tTokens in row:", tokens)
             # Locate response tokens (after first [SEP])
@@ -272,43 +276,8 @@ def get_evaluation_data(dataloader, predictions, tokenizer, DEBUG=False, include
     if len(true_labels) != len(predicted_labels):
         raise Exception("Size of labels and predictions do not match!")
 
-    return true_labels, predicted_labels
+    return feature_tokens, true_labels, predicted_labels
 
-
-def evaluate_predictions(y, yhat, labels_ignore=[-100]):
-    """
-    Evaluates the model's performance using precision, recall, F1-score, and accuracy.
-
-    Inputs:
-    - y: List of arrays with true labels for response tokens.
-    - yhat: List of arrays with predicted labels for response tokens.
-    - labels_ignore: List of labels to exclude during evaluation (e.g., padding token `-100`).
-
-    Outputs:
-    - metrics: Dictionary containing precision, recall, F1-score, and accuracy.
-    """
-    # Flatten lists of arrays
-    y_flat = np.concatenate(y).flatten()
-    yhat_flat = np.concatenate(yhat).flatten()
-
-    # Filter out ignored labels (like padding)
-    valid_indices = np.isin(y_flat, labels_ignore, invert=True)
-    y_filtered = y_flat[valid_indices]
-    yhat_filtered = yhat_flat[valid_indices]
-
-    # Compute metrics
-    precision = precision_score(y_filtered, yhat_filtered, average="binary")
-    recall = recall_score(y_filtered, yhat_filtered, average="binary")
-    f1 = f1_score(y_filtered, yhat_filtered, average="binary")
-    accuracy = accuracy_score(y_filtered, yhat_filtered)
-
-    metrics = {
-        "Precision": precision,
-        "Recall": recall,
-        "F1-Score": f1,
-        "Accuracy": accuracy,
-    }
-    return metrics
 
 
 def cross_validate_model(features, labels, ARGS, num_folds=5):
@@ -353,7 +322,7 @@ def cross_validate_model(features, labels, ARGS, num_folds=5):
 
         # Evaluate on the test fold
         predictions = inference(model, test_loader, ARGS)
-        y, yhat = get_evaluation_data(test_loader, predictions, ARGS.tokenizer)
+        feature_tokens, y, yhat = get_evaluation_data(test_loader, predictions, ARGS.tokenizer)
         metrics = evaluate_predictions(y, yhat)
         fold_metrics.append(metrics)
 
@@ -467,7 +436,7 @@ def training_testing(ARGS=None, test=True):
     # Tokens after the first [SEP] up to the end of the response are the ones you care about
     # Exclude. Padding tokens & Special tokens like [CLS] and [SEP]
 
-    y, yhat = get_evaluation_data(test_loader, predictions, tokenizer=ARGS.tokenizer, DEBUG=False)
+    feature_tokens, y, yhat = get_evaluation_data(test_loader, predictions, tokenizer=ARGS.tokenizer, DEBUG=False)
 
     # if required, save the prediction data to a file
     if args.output_path is not None:
@@ -574,15 +543,16 @@ def testing(ARGS=None):
     print("Performing inference")
     predictions = inference(model, test_loader, args=ARGS)
     # extract the true labels and the predicted labels
-    y, yhat = get_evaluation_data(test_loader, predictions, tokenizer=ARGS.tokenizer, DEBUG=False)
-    print(y, yhat)
+    feature_tokens, y, yhat = get_evaluation_data(test_loader, predictions, tokenizer=ARGS.tokenizer, DEBUG=ARGS.DEBUG)
+
+    print("size of features", len(features))
+    print("size of y", len(y))
 
     # if required, save the prediction data to a file
     if args.output_path is not None:
-        with open(args.output_path, "w") as f:
-            f.write("True;Predicted\n")
+        with open(args.output_path, "w", encoding='utf-8') as f:
             for i in range(len(y)):
-                f.write(f"{y[i]};{yhat[i]}\n")
+                f.write(f"{feature_tokens[i]}[SEP]{y[i]}[SEP]{yhat[i]}[END]\n")
 
     metrics = evaluate_predictions(y, yhat)
 
@@ -646,9 +616,10 @@ def training_testing_cv(ARGS=None, test=True):
 if __name__ == "__main__":
     args = Args()
     args.data_path = '../data/preprocessed/val_preprocessed.json'
-    args.output_path = '../data/output/val_predictions_mbert2.csv'
+    args.output_path = '../data/output/val_predictions_mbert3.csv'
     # args.model_path = "./mbert_token_classifier_split/"
-    args.model_path = "./mbert_token_classifier_test/"
+    args.model_path = "./mbert_token_classifier_split/"
+    args.DEBUG = True
     # training_testing(args)
-    # testing(args)
-    training_testing_cv(args)
+    testing(args)
+    # training_testing_cv(args)
