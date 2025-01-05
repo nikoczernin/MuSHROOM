@@ -1,56 +1,21 @@
-import json
 import os
-from pprint import pprint
-
-import numpy as np
+from time import time as get_time
+import warnings
 
 from transformers import AdamW
 from transformers import BertTokenizer, BertForTokenClassification
-import torch
 from torch.utils.data import DataLoader, Dataset, Subset
 from torch.nn import CrossEntropyLoss
 from sklearn.model_selection import KFold
 
-from baseline_utils import get_data_for_NN, set_seed
-
-from time import time as get_time
 # import wandb
 
-from baseline_utils import evaluate_predictions
+from NN_utils import *
 
-import warnings
 
 warnings.filterwarnings('ignore')  # "error", "ignore", "always", "default", "module" or "once"
 
 set_seed(42)
-
-# Helper class for all hyperparameters
-class Args:
-    def __init__(self):
-        self.MAX_LENGTH = 128 * 2  # Max token length for mBERT
-        # Set device
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        # Training time handling
-        self.max_epochs = 100
-        self.patience = 3
-        self.early_stopping = True
-        self.learning_rate = 2e-5
-        self.batch_size = 8
-
-        self.TOKENIZER_MODEL_NAME = None
-        self.tokenizer = None
-        self.optimizer = None
-        self.loss_fn = None
-        self.model_name = None
-        # input data path
-        self.data_path = None
-        # Wandb logging
-        self.log = False
-        self.DEBUG = False
-        # Handling of data size exceeding the maximum length
-        self.split_overflow = True
-        self.truncate_overflow = False
-        self.skip_overflowing_observation = False
 
 
 # Dataset class to handle features and labels for token classification
@@ -167,7 +132,7 @@ def train_model(training_model, dataloader, args):
 
     print(f"Training complete! Total time taken: {get_time() - start} seconds.")
     # Step 6: Save the model
-    training_model.save_pretrained(args.model_name)
+    training_model.save_pretrained(args.model_path)
     args.tokenizer.save_pretrained("mbert_token_classifier")
     print("Model and tokenizer saved!")
     return epoch
@@ -279,7 +244,6 @@ def get_evaluation_data(dataloader, predictions, tokenizer, DEBUG=False, include
     return feature_tokens, true_labels, predicted_labels
 
 
-
 def cross_validate_model(features, labels, ARGS, num_folds=5):
     """
     Performs k-fold cross-validation on the dataset.
@@ -315,7 +279,6 @@ def cross_validate_model(features, labels, ARGS, num_folds=5):
         # Define optimizer and loss function
         ARGS.loss_fn = CrossEntropyLoss()
         print(f"Device: {ARGS.device}")
-        ARGS.model_name = "mbert_token_classifier"
 
         # Train the model
         train_model(model, train_loader, ARGS)
@@ -352,7 +315,8 @@ def training_testing(ARGS=None, test=True):
     features, labels = get_data_for_NN(ARGS.data_path, max_length=ARGS.MAX_LENGTH,
                                        split_overflow=ARGS.split_overflow,
                                        truncate_overflow=ARGS.truncate_overflow,
-                                       skip_overflowing_observation=ARGS.skip_overflowing_observation)
+                                       skip_overflowing_observation=ARGS.skip_overflowing_observation,
+                                       raw_input=ARGS.raw_input)
     print("Data is prepared!")
     # what is the maximum length of the features and labels?
     max_len = 0
@@ -378,7 +342,7 @@ def training_testing(ARGS=None, test=True):
 
     # Create datasets and dataloaders
     train = HallucinationDataset(features, labels, tokenizer=ARGS.tokenizer, max_length=ARGS.MAX_LENGTH)
-    test =  HallucinationDataset(features, labels, tokenizer=ARGS.tokenizer, max_length=ARGS.MAX_LENGTH)
+    test = HallucinationDataset(features, labels, tokenizer=ARGS.tokenizer, max_length=ARGS.MAX_LENGTH)
     train_loader = DataLoader(train, batch_size=ARGS.batch_size, shuffle=True)
     test_loader = DataLoader(test, batch_size=ARGS.batch_size, shuffle=True)
     print("Datasets and dataloaders created!")
@@ -388,7 +352,6 @@ def training_testing(ARGS=None, test=True):
     # Define optimizer and loss function
     ARGS.loss_fn = CrossEntropyLoss()
     print(f"Device: {ARGS.device}")
-    ARGS.model_name = "mbert_token_classifier"
 
     if ARGS.log:
         # start a new wandb run to track this script
@@ -399,9 +362,9 @@ def training_testing(ARGS=None, test=True):
             config={
                 "dataset": ARGS.data_path,
                 "architecture": "Baseline mBERT (query & response sequence classification)",
-                "model": ARGS.model_name,
+                "model": ARGS.model_path,
                 "tokenizer": ARGS.TOKENIZER_MODEL_NAME,
-                "device": ARGS.model_name,
+                "device": ARGS.model_path,
                 "loss_function": ARGS.loss_fn,
                 "optimizer": ARGS.optimizer,
                 "max_length": ARGS.MAX_LENGTH,
@@ -440,38 +403,13 @@ def training_testing(ARGS=None, test=True):
 
     # if required, save the prediction data to a file
     if args.output_path is not None:
-        with open(args.output_path, "w") as f:
-            f.write("True;Predicted\n")
-            for i in range(len(y)):
-                f.write(f"{y[i]};{yhat[i]}\n")
+        save_lists_to_delim_file(args.output_path, feature_tokens, y, yhat)
 
     metrics = evaluate_predictions(y, yhat)
 
     print("Evaluation Metrics:")
     for metric, value in metrics.items():
         print(f"{metric}: {value:.4f}")
-
-    '''
-    ARGS.batch_size = 8
-    ARGS.learning_rate = 2e-5
-    ARGS.max_length = 128
-    ARGS.model_name = TOKENIZER_MODEL_NAME
-    
-    print("Starting cross-validation...")
-    avg_metrics = cross_validate_model(
-        features=features,
-        labels=labels,
-        tokenizer=tokenizer,
-        model=model,
-        args=ARGS,
-        num_folds=5
-    )
-    
-    # Print average metrics across all folds
-    print("Cross-validation completed. Average Metrics:")
-    for metric, value in avg_metrics.items():
-        print(f"{metric}: {value:.4f}")
-    '''
 
 
 def testing(ARGS=None):
@@ -503,7 +441,6 @@ def testing(ARGS=None):
         total += len(row["model_output_text_processed"])
     print("Total number of sentences in the JSON data:", total)
 
-
     # Define constants
     ARGS.TOKENIZER_MODEL_NAME = "bert-base-multilingual-cased"
 
@@ -515,11 +452,10 @@ def testing(ARGS=None):
     print("Model loaded!")
 
     # Create dataset and dataloader
-    test =  HallucinationDataset(features, labels, tokenizer=ARGS.tokenizer, max_length=ARGS.MAX_LENGTH)
+    test = HallucinationDataset(features, labels, tokenizer=ARGS.tokenizer, max_length=ARGS.MAX_LENGTH)
     test_loader = DataLoader(test, batch_size=8, shuffle=True)
     print("Dataset and dataloader created!")
 
-    ARGS.model_name = "mbert_token_classifier"
     # Load the trained model
     model = BertForTokenClassification.from_pretrained(ARGS.model_path, num_labels=2)
     model.to(ARGS.device)
@@ -532,7 +468,7 @@ def testing(ARGS=None):
             # track hyperparameters and run metadata
             config={
                 "architecture": "Baseline mBERT (query & response sequence classification)",
-                "model": ARGS.model_path if ARGS.model_path is not None else ARGS.model_name,
+                "model": ARGS.model_path if ARGS.model_path is not None else ARGS.model_path,
                 "tokenizer": ARGS.TOKENIZER_MODEL_NAME,
                 "device": ARGS.device,
                 "max_length": ARGS.MAX_LENGTH,
@@ -550,9 +486,7 @@ def testing(ARGS=None):
 
     # if required, save the prediction data to a file
     if args.output_path is not None:
-        with open(args.output_path, "w", encoding='utf-8') as f:
-            for i in range(len(y)):
-                f.write(f"{feature_tokens[i]}[SEP]{y[i]}[SEP]{yhat[i]}[END]\n")
+        save_lists_to_delim_file(args.output_path, feature_tokens, y, yhat)
 
     metrics = evaluate_predictions(y, yhat)
 
@@ -615,11 +549,14 @@ def training_testing_cv(ARGS=None, test=True):
 
 if __name__ == "__main__":
     args = Args()
+    args.raw_input = True
+    args.split_overflow = True
+    args.truncate_overflow = False
+    args.skip_overflowing_observation = False
     args.data_path = '../data/preprocessed/val_preprocessed.json'
-    args.output_path = '../data/output/val_predictions_mbert3.csv'
-    # args.model_path = "./mbert_token_classifier_split/"
+    args.output_path = '../data/output/val_predictions_mbert_rawinput.csv'
     args.model_path = "./mbert_token_classifier_split/"
-    args.DEBUG = True
+    args.DEBUG = False
     # training_testing(args)
     testing(args)
     # training_testing_cv(args)

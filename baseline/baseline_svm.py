@@ -3,7 +3,7 @@ from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.svm import SVC
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix
-from baseline.baseline_utils import timer, get_data_for_NN
+from baseline.NN_utils import timer, get_data_for_NN
 
 @timer
 def parse_feature(feature):

@@ -8,6 +8,39 @@ import random
 from sklearn.metrics import precision_score, recall_score, f1_score, accuracy_score
 
 
+
+# Helper class for all hyperparameters
+class Args:
+    def __init__(self):
+        self.MAX_LENGTH = 128 * 2  # Max token length for mBERT
+        # Set device
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        # Training time handling
+        self.max_epochs = 100
+        self.patience = 3
+        self.early_stopping = True
+        self.learning_rate = 2e-5
+        self.batch_size = 8
+
+        # if this is true, the model will be trained and tested on the unprocessed input data
+        self.raw_input = False
+
+        self.TOKENIZER_MODEL_NAME = None
+        self.tokenizer = None
+        self.optimizer = None
+        self.loss_fn = None
+        self.model_name = None
+        # input data path
+        self.data_path = None
+        # Wandb logging
+        self.log = False
+        self.DEBUG = False
+        # Handling of data size exceeding the maximum length
+        self.split_overflow = True
+        self.truncate_overflow = False
+        self.skip_overflowing_observation = False
+
+
 def timer(func):
     """
     A decorator to measure and print the execution time of a function.
@@ -22,6 +55,7 @@ def timer(func):
     This decorator can be used to wrap functions and output their execution time
     in seconds.
     """
+
     @wraps(func)
     def wrapper(*args, **kwargs):
         start_time = time.time()
@@ -30,8 +64,8 @@ def timer(func):
         duration = end_time - start_time
         print(f"{func.__name__} executed in {duration:.4f} seconds")
         return result
-    return wrapper
 
+    return wrapper
 
 
 @timer
@@ -41,7 +75,8 @@ def get_data_for_NN(datapath, include_POS=False,
                     truncate_overflow=True,
                     skip_overflowing_query=False,
                     skip_overflowing_observation=False,
-                    split_overflow=False
+                    split_overflow=False,
+                    raw_input=False
                     ):
     # for each observation in the data, we want to create two training objects, saved in separate lists
     # 1: the features
@@ -80,16 +115,19 @@ def get_data_for_NN(datapath, include_POS=False,
         # keep a flag for wrapping up in case of wrapping overflow strategy
         for sentence in obj["model_output_text_processed"]:
             for token in sentence:
-                # add every lemma as a feature
-                lemma = token.get("lemma")
-                if lemma is not None:
+                # add every lemma or original text as a feature
+                if raw_input:
+                    word_string = token.get("text")
+                else:
+                    word_string = token.get("lemma")
+                if word_string is not None:
                     if include_POS:
                         raise Exception("POS-tags are not yet implemented")
                         # these 4 rows are optional: include POS-tags in the features
                         # also add a "ignore" label to the label_sequence
                         # upos = token.get("upos")
                         # xpos = token.get("xpos")
-                    feature_response.append(lemma)
+                    feature_response.append(word_string)
                     # for each word add also the label to the labels sequence
                     label = token.get("hallucination")
                     label_sequence.append(int(label) if label is not None else 0)
@@ -176,8 +214,6 @@ def set_seed(seed: int):
     torch.backends.cudnn.benchmark = False  # Disables optimization that can introduce randomness
 
 
-
-
 def evaluate_predictions(y, yhat, labels_ignore=[-100]):
     """
     Evaluates the model's performance using precision, recall, F1-score, and accuracy.
@@ -212,3 +248,13 @@ def evaluate_predictions(y, yhat, labels_ignore=[-100]):
         "Accuracy": accuracy,
     }
     return metrics
+
+
+def save_lists_to_delim_file(output_path, *args, delimiter="[DELIM]"):
+    # *args are an unknown number of lists with the same length
+    # write a csv file where the ith row is the ith element of each list
+    with open(output_path, "w") as f:
+        for i in range(len(args[0])):
+            row = [str(arg[i]).replace("\n", "") for arg in args]
+            f.write(f"{delimiter}".join(row) + "\n")
+

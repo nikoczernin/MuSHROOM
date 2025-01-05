@@ -276,6 +276,7 @@ def preprocess(data, data_name, output_folder="../data/"):
         # This processing is row-by-row because some languages could trip up a bulk pipeline
         # print(f"\tProcessing input: ({lang}) \"{model_input[:100]} ...\"")
         model_input_processed = preprocessor.preprocess(model_input, lang)[0].to_dict()
+
         # print(f"\tProcessing output: ({lang}) \"{model_output_text[:100000]} ...\"")
         model_output_text_processed = preprocessor.preprocess(model_output_text, lang)[0].to_dict()
 
@@ -339,7 +340,7 @@ def preprocess_project(sample=True, train=True, val=True, output_folder="../data
 # Run the test function if the script is executed directly
 if __name__ == "__main__":
     # test()
-    preprocess_project(sample=False, train=False, val=True, output_folder="../data/preprocessed")
+    preprocess_project(sample=True, train=False, val=False, output_folder="../data/preprocessed")
     # print("Great success, I like!")
     # preprocess(pd.read_json("../data/exploration/exploration.json", lines=True), "exploration", output_folder="../data/preprocessed")
 
