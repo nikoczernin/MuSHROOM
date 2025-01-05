@@ -514,15 +514,18 @@ def training_testing_cv(ARGS=None, test=True):
 
 
 if __name__ == "__main__":
-    args = Args()
-    args.raw_input = True
+    args = Args() # dont touch
+    args.raw_input = True # recommended. skips Stanza preprocessing
+    # select an overflow strategy
     args.split_overflow = True
     args.truncate_overflow = False
     args.skip_overflowing_observation = False
-    args.data_path = '../data/preprocessed/val_preprocessed.json'
-    args.output_path = '../data/output/val_predictions_mbert_rawinput.csv'
-    args.model_path = "./mbert_token_classifier_split/"
-    args.DEBUG = False
+    # Paths and names
+    args.data_path = '../data/preprocessed/val_preprocessed.json' # input data
+    args.output_path = '../data/output/val_predictions_mbert_rawinput.csv' # location for inference output
+    args.model_path = "./mbert_token_classifier_split/" # path for saving new model or loading pretrained model
+    args.DEBUG = False # print extra information
+    ##### SELECT A WORKFLOW #####
     # training_testing(args)
     testing(args)
     # training_testing_cv(args)
