@@ -250,6 +250,45 @@ def evaluate_predictions(y, yhat, labels_ignore=[-100]):
     return metrics
 
 
+
+
+def inference(inference_model, dataloader, args, flatten_output=False, binary_output=True):
+    """
+    Performs inference to predict token labels for the input data.
+    - inference_model: Trained model for inference.
+        How to use:
+        for batch in trainloader:
+            inference(model, batch["input_ids"])
+    - dataloader: DataLoader providing batches of input data.
+    - args: Arguments object specifying device for inference.
+    - flatten_output: Whether to return predictions as a single concatenated array. Not recommended.
+
+    Returns:
+    - all_predictions: Predicted labels for each token in the input.
+    """
+    inference_model.eval()  # is this necessary?
+    all_predictions = []
+    for batch in dataloader:
+        input_ids = batch["input_ids"].to(args.device)
+        attention_mask = batch["attention_mask"].to(args.device)
+        # Get logits from the model
+        output = inference_model(input_ids=input_ids, attention_mask=attention_mask)
+        # TokenClassifierOutput with attrs: loss, logits, grad_fn, hidden_states, attentions
+        # the logits should be the probabilities of all classes for each observation
+        # and therefore have shape (num_obs_in_batch, size_feature_space, num_class_labels)
+        # Convert logits to predicted labels
+        # Shape: [num_obs_in_batch, size_feature_space]
+        if binary_output:
+            preds = torch.argmax(output.logits, dim=-1)
+        else:
+            preds = output.logits
+        all_predictions.append(preds.cpu())
+    if flatten_output:
+        all_predictions = torch.cat(all_predictions, dim=0)  # Shape: (total_num_samples, seq_len)
+    return all_predictions
+
+
+
 def save_lists_to_delim_file(output_path, *args, delimiter="[DELIM]"):
     # *args are an unknown number of lists with the same length
     # write a csv file where the ith row is the ith element of each list
