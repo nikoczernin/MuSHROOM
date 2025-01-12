@@ -45,28 +45,23 @@ class HallucinationDataset(Dataset):
         """
         feature = self.features[idx]
         labels = self.labels[idx]
-        if len(feature) > self.max_length:
-            raise ValueError(f"Length of feature ({len(feature)}) exceeds max_length ({self.max_length})")
-        if len(labels) > self.max_length:
-            raise ValueError(f"Length of labels ({len(labels)}) exceeds max_length ({self.max_length})")
         # Tokenize input text
         encoded = self.tokenizer(
             feature,
             padding="max_length",
-            truncation=True,
+            truncation=True,  # Truncate if the length exceeds max_length
             max_length=self.max_length,
             return_tensors="pt",
         )
-        # label_ids starts as a list of -100 values, matching the length of the tokenized input sequence.
-        label_ids = [-100] * len(encoded["input_ids"][0])  # Ignore non-response tokens
-        # the self.tokenizer.sep_token_id identifies the [SEP] token, which separates the query from the response
-        # response_start points to the position in the tokenized sequence immediately after the first [SEP],
-        # marking the start of the response
+
+        # Initialize label_ids with -100 (ignored tokens)
+        label_ids = [-100] * self.max_length  # Ensure the length matches max_length
+
+        # Find the start of the response (after the [SEP] token)
         response_start = encoded["input_ids"][0].tolist().index(self.tokenizer.sep_token_id) + 1
-        # labels is the binary label list for the response tokens (e.g., [0, 0, 1, 0, 1]).
-        # This line replaces the corresponding portion of label_ids (starting from response_start) with
-        # the actual labels for the response tokens.
-        label_ids[response_start:response_start + len(labels)] = labels
+
+        # Assign labels to the corresponding response tokens
+        label_ids[response_start:response_start + len(labels)] = labels[:self.max_length - response_start]
 
         return {
             "input_ids": encoded["input_ids"].squeeze(0),
@@ -179,25 +174,27 @@ def get_evaluation_data(dataloader, predictions, tokenizer, DEBUG=False, include
         for i in range(input_ids.shape[0]):
             # Get the tokenized text
             tokens = tokenizer.convert_ids_to_tokens(input_ids[i])
+            # tokens sometimes get split up by the tokenizer
+            # for example, "Fußball" becomes ["Fu", "##ß", "##ball"]
+            # join them back together
+            # tokens = " ".join(tokens).replace(" ##", "").split()
             feature_tokens.append(tokens)
             if DEBUG: print(f"Current row: {i + (batch_idx + 1) * input_ids.shape[0]}")
-            if DEBUG: print(f"\tTokens in row:", tokens)
+            if DEBUG: print(f"\tTokens in row ({len(tokens)}):", tokens)
+            if DEBUG: print(f"\tPredicted labels in row ({len(batch_preds[i])}):", batch_preds[i])
+            if DEBUG: print(f"\tActual labels in row ({len(batch_labels[i])}):", batch_labels[i])
+
             # Locate response tokens (after first [SEP])
-            sep_index = input_ids[i].tolist().index(tokenizer.sep_token_id) + 1
-            response_tokens = tokens[sep_index:]
+            sep_indices = [i for i, token in enumerate(tokens) if token == "[SEP]"]
+            if DEBUG: print("\tIndices of [SEP] tokens:", sep_indices)
+            # there should be 2 sep indices
+            if len(sep_indices) != 2: raise Exception(f"Expected 2 [SEP] tokens, found {len(sep_indices)}!")
+            response_tokens = tokens[sep_indices[0]+1 : sep_indices[1]]
+            response_preds = batch_preds[i][sep_indices[0]+1 : sep_indices[1]]
+            response_labels = batch_labels[i][sep_indices[0]+1 : sep_indices[1]]
             if DEBUG: print("\tTokens in response:", response_tokens)
-            response_preds = batch_preds[i][sep_index:]
             if DEBUG: print("\tPredicted labels for response:", response_preds)
-            response_labels = batch_labels[i][sep_index:]
             if DEBUG: print("\tActual labels for response:", response_labels)
-            if not include_padding:
-                # now filter out the labels with the -100 labels, those are just padding
-                padding_index = response_labels.tolist().index(-100)
-                if DEBUG: print("\tPadding starts at index", padding_index)
-                response_preds = response_preds[:padding_index]
-                response_labels = response_labels[:padding_index]
-                if DEBUG: print("\tPredicted labels truncated for response:", response_preds)
-                if DEBUG: print("\tActual labels truncated for response:", response_labels)
 
             if len(response_preds) != len(response_labels):
                 raise Exception(f"Size of labels and predictions do not match on row {i}!")
@@ -278,7 +275,9 @@ def training_testing(ARGS=None, test=True):
     6. Evaluate model performance using precision, recall, F1-score, and accuracy.
     """
     os.chdir(os.getcwd())
-    features, labels = get_data_for_NN(ARGS.data_path, max_length=ARGS.MAX_LENGTH,
+    features, labels = get_data_for_NN(ARGS.data_path,
+                                       max_length=ARGS.MAX_LENGTH,
+                                       include_POS=ARGS.include_POS,
                                        split_overflow=ARGS.split_overflow,
                                        truncate_overflow=ARGS.truncate_overflow,
                                        skip_overflowing_observation=ARGS.skip_overflowing_observation,
@@ -392,7 +391,10 @@ def testing(ARGS=None):
     6. Evaluate model performance using precision, recall, F1-score, and accuracy.
     """
     os.chdir(os.getcwd())
-    features, labels = get_data_for_NN(ARGS.data_path, max_length=ARGS.MAX_LENGTH)
+    features, labels = get_data_for_NN(ARGS.data_path,
+                                       max_length=ARGS.MAX_LENGTH,
+                                       include_POS=ARGS.include_POS
+                                       )
     print("Data is prepared!")
     print("Lengths of data:", len(features), len(labels))
 
@@ -413,9 +415,6 @@ def testing(ARGS=None):
     print("Loading tokenizer and model...")
     ARGS.tokenizer = BertTokenizer.from_pretrained(ARGS.TOKENIZER_MODEL_NAME)
     print("Tokenizer loaded!")
-    # model = BertForTokenClassification.from_pretrained(ARGS.TOKENIZER_MODEL_NAME, num_labels=2)
-    # TODO: Load the trained model
-    print("Model loaded!")
 
     # Create dataset and dataloader
     test = HallucinationDataset(features, labels, tokenizer=ARGS.tokenizer, max_length=ARGS.MAX_LENGTH)
@@ -425,6 +424,7 @@ def testing(ARGS=None):
     # Load the trained model
     model = BertForTokenClassification.from_pretrained(ARGS.model_path, num_labels=2)
     model.to(ARGS.device)
+    print("Model loaded!")
 
     if ARGS.log:
         # start a new wandb run to track this script
@@ -447,9 +447,6 @@ def testing(ARGS=None):
     # extract the true labels and the predicted labels
     feature_tokens, y, yhat = get_evaluation_data(test_loader, predictions, tokenizer=ARGS.tokenizer, DEBUG=ARGS.DEBUG)
 
-    print("size of features", len(features))
-    print("size of y", len(y))
-
     # if required, save the prediction data to a file
     if args.output_path is not None:
         save_lists_to_delim_file(args.output_path, feature_tokens, y, yhat)
@@ -467,7 +464,9 @@ def testing(ARGS=None):
 
 def training_testing_cv(ARGS=None, test=True):
     os.chdir(os.getcwd())
-    features, labels = get_data_for_NN(ARGS.data_path, max_length=ARGS.MAX_LENGTH,
+    features, labels = get_data_for_NN(ARGS.data_path,
+                                       max_length=ARGS.MAX_LENGTH,
+                                       include_POS=ARGS.include_POS,
                                        split_overflow=ARGS.split_overflow,
                                        truncate_overflow=ARGS.truncate_overflow,
                                        skip_overflowing_observation=ARGS.skip_overflowing_observation)
@@ -516,16 +515,13 @@ def training_testing_cv(ARGS=None, test=True):
 if __name__ == "__main__":
     args = Args() # dont touch
     args.raw_input = True # recommended. skips Stanza preprocessing
-    # select an overflow strategy
-    args.split_overflow = True
-    args.truncate_overflow = False
-    args.skip_overflowing_observation = False
+    args.include_POS = False # include POS tags in the input data for more context
     # Paths and names
-    args.data_path = '../data/preprocessed/val_preprocessed.json' # input data
-    args.output_path = '../data/output/val_predictions_mbert_rawinput.csv' # location for inference output
-    args.model_path = "./mbert_token_classifier_split/" # path for saving new model or loading pretrained model
-    args.DEBUG = False # print extra information
+    args.data_path = '../data/preprocessed/sample_preprocessed.json' # input data
+    args.output_path = '../data/output/sample_predictions_mbert_test.csv' # location for inference output
+    args.model_path = "./mbert_token_classifier_test/" # path for saving new model or loading pretrained model
+    args.DEBUG = False  # print extra information
     ##### SELECT A WORKFLOW #####
-    # training_testing(args)
-    testing(args)
-    # training_testing_cv(args)
+    training_testing(args) # train a new model and test it once
+    # testing(args) # load a pretrained model and test it once
+    training_testing_cv(args) # train k-fold cross validation and test once

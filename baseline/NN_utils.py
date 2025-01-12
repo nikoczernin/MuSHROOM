@@ -25,6 +25,9 @@ class Args:
         # if this is true, the model will be trained and tested on the unprocessed input data
         self.raw_input = False
 
+        # if true, POS tokens will be used in input data, they iwll be ignored by optimizer though
+        self.include_POS = False
+
         self.TOKENIZER_MODEL_NAME = None
         self.tokenizer = None
         self.optimizer = None
@@ -69,9 +72,9 @@ def timer(func):
 
 
 @timer
-def get_data_for_NN(datapath, include_POS=False,
+def get_data_for_NN(datapath,
                     max_length=512,
-                    ignore_label=-100,
+                    include_POS=False,
                     truncate_overflow=True,
                     skip_overflowing_query=False,
                     skip_overflowing_observation=False,
@@ -84,12 +87,6 @@ def get_data_for_NN(datapath, include_POS=False,
     # the features are the query and the response, prepended by a [CLS] token and separated by a [SEP] token
     # the labels are a list of binary labels (1 for hallucatinations)
 
-    # TODO: often the data is too long to make for a reasonable input to the model
-    # we can truncate the data to a maximum length, but this will result in a loss of information
-    # we can also split the data in multiple observations, but this will result in a loss of context
-    # if the query is too long, we can ignore the query, but this will result in a greater loss of context
-    # we can also ignore the data, but this will result in a loss of data
-
     # read the json of the preprocessed data
     with open(datapath) as f:
         data = json.load(f)
@@ -101,99 +98,68 @@ def get_data_for_NN(datapath, include_POS=False,
         # we iterate over the processed token objects, with the iterating number being i
         # the ith token should correspond with the ith label
         # the label of this response is a list of binary labels (1 for hallucatinations)
-        label_sequence = []
 
-        query = obj.get("model_input")
-        # the feature of this observation is the query and the response
-        # keep separate variable for both components of the feature
-        feature_query = ""
-        feature_response = []
-        # if the query is too long we may want to avoid using it in the features
-        feature_query += f"{query} [SEP]"
-        # keep a flag for cancellation in case of truncation overflow strategy
-        break_loop = False
-        # keep a flag for wrapping up in case of wrapping overflow strategy
+        feature_seq = []
+        label_seq = []
+        # add the query tokens and labels
+        for sentence in obj["model_input_processed"]:
+            for token in sentence:
+                # add every lemma or original text as a feature
+                if raw_input: word_string = token.get("text")
+                else: word_string = token.get("lemma")
+                if word_string is not None:
+                    feature_seq.append(word_string)
+                    # for each word add also the label to the labels sequence
+                    label = -100
+                    label_seq.append(int(label) if label is not None else 0)
+                    if include_POS:
+                        # raise Exception("POS-tags are not yet implemented")
+                        # these 4 rows are optional: include POS-tags in the features
+                        # also add a "ignore" label to the label_sequence
+                        upos = token.get("upos")
+                        xpos = token.get("xpos")
+                        feature_seq.append(upos)
+                        feature_seq.append(xpos)
+                        # add "ignore" tokens for the labels here
+                        label_seq.append(-100)
+                        label_seq.append(-100)
+        # add a separator token to the sequences
+        feature_seq.append("[SEP]")
+        label_seq.append(-100)
+        # add the response tokens and labels
         for sentence in obj["model_output_text_processed"]:
             for token in sentence:
                 # add every lemma or original text as a feature
-                if raw_input:
-                    word_string = token.get("text")
-                else:
-                    word_string = token.get("lemma")
-                if word_string is not None:
-                    if include_POS:
-                        raise Exception("POS-tags are not yet implemented")
-                        # these 4 rows are optional: include POS-tags in the features
-                        # also add a "ignore" label to the label_sequence
-                        # upos = token.get("upos")
-                        # xpos = token.get("xpos")
-                    feature_response.append(word_string)
-                    # for each word add also the label to the labels sequence
-                    label = token.get("hallucination")
-                    label_sequence.append(int(label) if label is not None else 0)
+                if raw_input: word_string = token.get("text", "[PAD]")
+                else: word_string = token.get("lemma", "[PAD]")
+                feature_seq.append(word_string)
+                # for each word add also the label to the labels sequence
+                label = token.get("hallucination", 0) # label: default 0, if not hallucination
+                label_seq.append(int(label))
+                if include_POS:
+                    # raise Exception("POS-tags are not yet implemented")
+                    # these 4 rows are optional: include POS-tags in the features
+                    # also add a "ignore" label to the label_sequence
+                    upos = token.get("upos", "[PAD]")
+                    xpos = token.get("xpos", "[PAD]")
+                    feature_seq.append(upos)
+                    feature_seq.append(xpos)
+                    # add "ignore" tokens for the labels here
+                    label_seq.append(-100)
+                    label_seq.append(-100)
 
-        if len(feature_query) + 1 + len(" ".join(feature_response)) <= max_length:
-            feature = feature_query + " ".join(feature_response)
-        # now if the feature_query + feature_response is too long, we need to apply an overflow strategy
-        # Strategy 1: truncate the data
-        # if we are overflowing
-        else:
-            # we can optionally skip the query if were overflowing
-            if skip_overflowing_query:
-                feature_query = "[SEP]"
-            # we can skip an entire observation if it is overflowing
-            if skip_overflowing_observation:
-                continue
-            # we can truncate the data to fit within max_length
-            elif truncate_overflow:
-                feature = feature_query
-                # only add tokens to the response until the max_length is reached
-                for i, token in enumerate(feature_response):
-                    if len(feature) + 1 + len(token) < max_length:
-                        feature += " " + token
-                    else:
-                        break
-                # since we can only add until the ith token to the sequence before reaching max_length
-                # we need to truncate the label_sequence as well
-                label_sequence = label_sequence[:i]
-            # we can split overflowing response into multiple observations with the same query head
-            elif split_overflow:
-                # make a new feature
-                feature = feature_query
-                # for iterating over all response tokens, keep track of the span of the feature (from i to j)
-                i = 0
-                # iterate over all tokens that need to go in a row
-                for j, token in enumerate(feature_response):
-                    # if the next token would make the feature too long,
-                    # save the feature and make a new iteration with a new feature
-                    if len(feature) + 1 + len(token) >= max_length:
-                        # save this observation
-                        features.append(feature)
-                        labels.append(label_sequence[i:j + 1])
-                        # reset the feature in case there is another iteration coming
-                        feature = feature_query
-                        # the current word is being skipped, if we dont append it to the feature now
-                        # therefore add it to the feature, but truncate it to the max_length just in case
-                        # TODO: this is a bit of a hack, maybe add a warning here to analyse if it happens and if its a problem
-                        feature += " " + token
-                        feature = feature[:max_length]
-                    else:
-                        # add the token to the feature
-                        feature += " " + token
-                    # set the left index to the next index in case there is another iteration coming
-                    i = j + 1
-                # save the last data in the lists
-                features.append(feature)
-                labels.append(label_sequence[i:j + 1])
-                # skip the rest of the loop
-                continue
-        # save the data in the lists
-        features.append(feature)
-        labels.append(label_sequence)
+        # add a separator token to the sequences
+        # save the data in the lists (Nones are not allowed here)
+        # print(feature_seq)
+        # print(label_seq)
+        features.append([x if x is not None else "[PAD]" for x in feature_seq])
+        labels.append([y if y is not None else -100 for y in label_seq])
 
     if len(features) != len(labels):
         raise Exception("The number of features and labels do not match!")
 
+    # join the features into a single string
+    features = [" ".join(feature_seq) for feature_seq in features]
     return features, labels
 
 
@@ -262,7 +228,6 @@ def inference(inference_model, dataloader, args, flatten_output=False, binary_ou
     - dataloader: DataLoader providing batches of input data.
     - args: Arguments object specifying device for inference.
     - flatten_output: Whether to return predictions as a single concatenated array. Not recommended.
-
     Returns:
     - all_predictions: Predicted labels for each token in the input.
     """
@@ -283,8 +248,6 @@ def inference(inference_model, dataloader, args, flatten_output=False, binary_ou
         else:
             preds = output.logits
         all_predictions.append(preds.cpu())
-    if flatten_output:
-        all_predictions = torch.cat(all_predictions, dim=0)  # Shape: (total_num_samples, seq_len)
     return all_predictions
 
 
