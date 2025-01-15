@@ -202,6 +202,12 @@ def get_evaluation_data(dataloader, predictions, tokenizer, DEBUG=False, include
                     raise Exception(f"Size of labels and predictions do not match on row {i}!")
                 else:
                     continue
+            if len(response_preds) != len(response_tokens):
+                if DEBUG:
+                    raise Exception(f"Size of tokens and predictions do not match on row {i}!")
+                else:
+                    continue
+
             feature_tokens.append(tokens)
             predicted_labels.append(response_preds)
             true_labels.append(response_labels)
@@ -452,16 +458,17 @@ def training_testing_cv(ARGS=None, test=True):
 
 if __name__ == "__main__":
     args = Args()  # dont touch
-    args.MAX_LENGTH = 128
+    args.MAX_LENGTH = 512
+    args.patience = 3
     args.raw_input = True  # recommended. skips Stanza preprocessing
-    args.include_POS = False  # include POS tags in the input data for more context
+    args.include_POS = True  # include POS tags in the input data for more context
     args.include_query = True  # include the query in the input
     args.skip_overflowing_observation = True  # skip observations that exceed the max length instead of truncating them
     # Paths and names
     args.data_path = '../data/preprocessed/val_preprocessed.json'  # input data
-    args.output_path = '../data/output/val_predictions_mbert_skip.csv'  # location for inference output
-    args.model_path = "./mbert_token_classifier_skip/"  # path for saving new model or loading pretrained model
-    args.DEBUG = True  # print extra information
+    args.output_path = '../data/output/val_predictions_mbert_POSSKIP.csv'  # location for inference output
+    args.model_path = "./mbert_token_classifier_POSSKIP/"  # path for saving new model or loading pretrained model
+    args.DEBUG = False  # print extra information
     ##### SELECT A WORKFLOW #####
     # training_testing(args) # train a new model and test it once
     testing(args)  # load a pretrained model and test it once

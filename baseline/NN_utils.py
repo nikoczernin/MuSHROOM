@@ -12,7 +12,7 @@ from sklearn.metrics import precision_score, recall_score, f1_score, accuracy_sc
 # Helper class for all hyperparameters
 class Args:
     def __init__(self):
-        self.MAX_LENGTH = 128 * 2  # Max token length for mBERT
+        self.MAX_LENGTH = 128 * 4  # Max token length for mBERT
         # Set device
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         # Training time handling
