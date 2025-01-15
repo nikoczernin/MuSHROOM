@@ -28,6 +28,8 @@ class Args:
         # if true, POS tokens will be used in input data, they iwll be ignored by optimizer though
         self.include_POS = False
 
+        self.include_query = True
+
         self.TOKENIZER_MODEL_NAME = None
         self.tokenizer = None
         self.optimizer = None
@@ -39,8 +41,6 @@ class Args:
         self.log = False
         self.DEBUG = False
         # Handling of data size exceeding the maximum length
-        self.split_overflow = True
-        self.truncate_overflow = False
         self.skip_overflowing_observation = False
 
 
@@ -75,10 +75,8 @@ def timer(func):
 def get_data_for_NN(datapath,
                     max_length=512,
                     include_POS=False,
-                    truncate_overflow=True,
-                    skip_overflowing_query=False,
+                    include_query=True,
                     skip_overflowing_observation=False,
-                    split_overflow=False,
                     raw_input=False
                     ):
     # for each observation in the data, we want to create two training objects, saved in separate lists
@@ -101,28 +99,28 @@ def get_data_for_NN(datapath,
 
         feature_seq = []
         label_seq = []
-        # add the query tokens and labels
-        for sentence in obj["model_input_processed"]:
-            for token in sentence:
-                # add every lemma or original text as a feature
-                if raw_input: word_string = token.get("text")
-                else: word_string = token.get("lemma")
-                if word_string is not None:
-                    feature_seq.append(word_string)
-                    # for each word add also the label to the labels sequence
-                    label = -100
-                    label_seq.append(int(label) if label is not None else 0)
-                    if include_POS:
-                        # raise Exception("POS-tags are not yet implemented")
-                        # these 4 rows are optional: include POS-tags in the features
-                        # also add a "ignore" label to the label_sequence
-                        upos = token.get("upos")
-                        xpos = token.get("xpos")
-                        feature_seq.append(upos)
-                        feature_seq.append(xpos)
-                        # add "ignore" tokens for the labels here
+        if include_query:
+            # add the query tokens and labels
+            for sentence in obj["model_input_processed"]:
+                for token in sentence:
+                    # add every lemma or original text as a feature
+                    if raw_input: word_string = token.get("text")
+                    else: word_string = token.get("lemma")
+                    if word_string is not None:
+                        # for each word add its string and the label to the sequences
+                        feature_seq.append(word_string)
                         label_seq.append(-100)
-                        label_seq.append(-100)
+                        if include_POS:
+                            # raise Exception("POS-tags are not yet implemented")
+                            # these 4 rows are optional: include POS-tags in the features
+                            # also add a "ignore" label to the label_sequence
+                            upos = token.get("upos")
+                            xpos = token.get("xpos")
+                            feature_seq.append(upos)
+                            feature_seq.append(xpos)
+                            # add "ignore" tokens for the labels here
+                            label_seq.append(-100)
+                            label_seq.append(-100)
         # add a separator token to the sequences
         feature_seq.append("[SEP]")
         label_seq.append(-100)
@@ -132,8 +130,8 @@ def get_data_for_NN(datapath,
                 # add every lemma or original text as a feature
                 if raw_input: word_string = token.get("text", "[PAD]")
                 else: word_string = token.get("lemma", "[PAD]")
+                # for each word add its string and the label to the sequences
                 feature_seq.append(word_string)
-                # for each word add also the label to the labels sequence
                 label = token.get("hallucination", 0) # label: default 0, if not hallucination
                 label_seq.append(int(label))
                 if include_POS:
@@ -148,10 +146,16 @@ def get_data_for_NN(datapath,
                     label_seq.append(-100)
                     label_seq.append(-100)
 
-        # add a separator token to the sequences
+        # check if the length of the feature sequence is too long
+        # if wanted, skip this observation to avoid observations with missing context
+        if skip_overflowing_observation:
+            if len(feature_seq) > max_length:
+                continue
+
+        if len(feature_seq) != len(label_seq):
+            raise Exception(f"The number of features and labels do not match in sample {sample_nr}!")
+
         # save the data in the lists (Nones are not allowed here)
-        # print(feature_seq)
-        # print(label_seq)
         features.append([x if x is not None else "[PAD]" for x in feature_seq])
         labels.append([y if y is not None else -100 for y in label_seq])
 
@@ -159,7 +163,10 @@ def get_data_for_NN(datapath,
         raise Exception("The number of features and labels do not match!")
 
     # join the features into a single string
-    features = [" ".join(feature_seq) for feature_seq in features]
+    # Edit: I stopped doing it here, because joining and splitting does not
+    # result in the same sequence of tokens as before!!!
+    # features = [" ".join(feature_seq) for feature_seq in features]
+    print(f"Data prepared, there are {len(features)} observations in the data.")
     return features, labels
 
 
