@@ -187,7 +187,7 @@ def set_seed(seed: int):
     torch.backends.cudnn.benchmark = False  # Disables optimization that can introduce randomness
 
 
-def evaluate_predictions(y, yhat, labels_ignore=[-100]):
+def evaluate_predictions(y, yhat, labels_ignore=[-100], accuracy=True, recall=True, precision=False, f1=False):
     """
     Evaluates the model's performance using precision, recall, F1-score, and accuracy.
 
@@ -200,26 +200,53 @@ def evaluate_predictions(y, yhat, labels_ignore=[-100]):
     - metrics: Dictionary containing precision, recall, F1-score, and accuracy.
     """
     # Flatten lists of arrays
+    accuracies = []
+    precisions = []
+    recalls = []
+    f1s = []
+
+    for i in range(len(y)):
+        y[i] = np.array(y[i])
+        yhat[i] = np.array(yhat[i])
+        # remove items where y == -100
+        valid_indices = np.isin(y[i], labels_ignore, invert=True)
+        y[i] = y[i][valid_indices]
+        yhat[i] = yhat[i][valid_indices]
+        # get evaluation metrics
+        accuracies.append(accuracy_score(y[i], yhat[i]))
+        precisions.append(precision_score(y[i], yhat[i], average="binary"))
+        recalls.append(recall_score(y[i], yhat[i], average="binary"))
+        f1s.append(f1_score(y[i], yhat[i], average="binary"))
+
+    # compute the average metrics
+    mean_accuracy = np.mean(accuracies)
+    mean_precision = np.mean(precisions)
+    mean_recall = np.mean(recalls)
+    mean_f1 = np.mean(f1s)
+
+    # also get matrics for all data concatenated
     y_flat = np.concatenate(y).flatten()
     yhat_flat = np.concatenate(yhat).flatten()
 
-    # Filter out ignored labels (like padding)
-    valid_indices = np.isin(y_flat, labels_ignore, invert=True)
-    y_filtered = y_flat[valid_indices]
-    yhat_filtered = yhat_flat[valid_indices]
+    # Compute flattened metrics
+    precision = precision_score(y_flat, yhat_flat, average="binary")
+    recall = recall_score(y_flat, yhat_flat, average="binary")
+    f1 = f1_score(y_flat, yhat_flat, average="binary")
+    accuracy = accuracy_score(y_flat, yhat_flat)
 
-    # Compute metrics
-    precision = precision_score(y_filtered, yhat_filtered, average="binary")
-    recall = recall_score(y_filtered, yhat_filtered, average="binary")
-    f1 = f1_score(y_filtered, yhat_filtered, average="binary")
-    accuracy = accuracy_score(y_filtered, yhat_filtered)
-
-    metrics = {
-        "Precision": precision,
-        "Recall": recall,
-        "F1-Score": f1,
-        "Accuracy": accuracy,
-    }
+    metrics = {}
+    if accuracy:
+        metrics["Accuracy"] = mean_accuracy
+        metrics["Accuracy_flat"] = accuracy
+    if precision:
+        metrics["Precision"] = mean_precision
+        metrics["Precision_flat"] = precision
+    if recall:
+        metrics["Recall"] = mean_recall
+        metrics["Recall_flat"] = recall
+    if f1:
+        metrics["F1"] = mean_f1
+        metrics["F1_flat"] = f1
     return metrics
 
 
