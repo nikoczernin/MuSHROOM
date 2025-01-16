@@ -4,7 +4,6 @@ import json
 from stanza.utils.conll import CoNLL
 
 
-
 def read_original_data_json(data_path: str) -> dict:
     """
     Loads JSON and JSONL data files from subfolders within the specified data path,
