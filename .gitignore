@@ -176,10 +176,10 @@ exploration.py
 NLP/
 /NLP_IE_2024WS_Exercise.pdf
 
-/baseline/bert-base-multilingual-cased/
+/classifiers/bert-base-multilingual-cased/
 /data/preprocessed
 
-/baseline/mbert_token_classifier/
+/classifiers/mbert_token_classifier/
 *.safetensors
 
 .DS_Store
