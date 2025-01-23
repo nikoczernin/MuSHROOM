@@ -58,7 +58,7 @@ def load_conll_data(path):
 
 
 if __name__ == "__main__":
-    path = "data/preprocessed/sample_preprocessed.json"
+    path = "../data/preprocessed/sample_preprocessed.json"
     with open(path, "r") as f:
         data = json.load(f)
         for row in data:

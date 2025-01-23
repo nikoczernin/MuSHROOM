@@ -1,16 +1,12 @@
-import pandas as pd
 import stanza
 from stanza.utils.conll import CoNLL
 from stanza.models.common.doc import Document
 from stanza.pipeline.multilingual import MultilingualPipeline
 import os
 import json
-from functools import wraps
-import time
-from pprint import pprint
 
 # Download required Stanza language models for multilingual processing
-from load_data import read_original_data_json
+from preprocess.load_data import read_original_data_json
 
 stanza.download(lang="multilingual")  # Download the model for multilingual processing
 
