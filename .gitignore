@@ -171,13 +171,9 @@ cython_debug/
 notes.txt
 # exploration file is optional
 exploration.py
-# ???
-NLP/
-/NLP_IE_2024WS_Exercise.pdf
 
-/classifiers/bert-base-multilingual-cased/
+/NLP_IE_2024WS_Exercise.pdf
 
 *.safetensors
 
 .DS_Store
-research/
