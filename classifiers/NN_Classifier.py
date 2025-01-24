@@ -8,8 +8,6 @@ from torch.utils.data import DataLoader, Dataset, Subset
 from torch.nn import CrossEntropyLoss
 from sklearn.model_selection import KFold
 
-# import wandb
-
 from NN_utils import *
 
 warnings.filterwarnings('ignore')  # "error", "ignore", "always", "default", "module" or "once"
@@ -78,39 +76,39 @@ class HallucinationDataset(Dataset):
         }
 
 
-def train_model(training_model, dataloader, args):
+def train_model(training_model, dataloader, ARGS):
     """
     Trains the mBERT model for token classification.
     - training_model: Pre-trained mBERT model for fine-tuning.
     - dataloader: DataLoader providing batches of training data.
-    - args: Arguments object with training configurations (device, optimizer, etc.).
+    - ARGS: Arguments object with training configurations (device, optimizer, etc.).
     """
-    training_model.to(args.device)
+    training_model.to(ARGS.device)
     print("Model moved to device!")
     # Step 5: Training loop
     training_model.train()
     print("Training started!")
     best_total_loss = np.inf
-    patience = args.patience
+    patience = ARGS.patience
     stop = False
     start = get_time()
-    for epoch in range(args.max_epochs):  # Maximum number of epochs
+    for epoch in range(ARGS.max_epochs):  # Maximum number of epochs
         t = get_time()
         total_loss = 0
         for batch in dataloader:
             # Move data to device
-            input_ids = batch["input_ids"].to(args.device)
-            attention_mask = batch["attention_mask"].to(args.device)
-            labels = batch["label"].to(args.device)
+            input_ids = batch["input_ids"].to(ARGS.device)
+            attention_mask = batch["attention_mask"].to(ARGS.device)
+            labels = batch["label"].to(ARGS.device)
             # Forward pass
             outputs = training_model(input_ids=input_ids,
                                      attention_mask=attention_mask,
                                      labels=labels)
             loss = outputs.loss
             # Backward pass
-            args.optimizer.zero_grad()
+            ARGS.optimizer.zero_grad()
             loss.backward()
-            args.optimizer.step()
+            ARGS.optimizer.step()
             total_loss += loss.item()
 
         cur_time = get_time()
@@ -118,7 +116,7 @@ def train_model(training_model, dataloader, args):
 
         # if the loss did not improve, test the patience
         if total_loss >= best_total_loss:
-            if patience <= 0 and args.early_stopping:
+            if patience <= 0 and ARGS.early_stopping:
                 print(f" ====> Early stopping at epoch {epoch + 1}")
                 stop = True
             else:
@@ -126,15 +124,15 @@ def train_model(training_model, dataloader, args):
                 print(f"Patience reduced to {patience}")
         else:
             # else reset the patience
-            patience = args.patience
+            patience = ARGS.patience
             # and (re)assign the previous loss to the current loss
             best_total_loss = total_loss
         if stop: break
 
     print(f"Training complete! Total time taken: {get_time() - start} seconds.")
     # Step 6: Save the model
-    training_model.save_pretrained(args.model_path)
-    args.tokenizer.save_pretrained("mbert_token_classifier")
+    training_model.save_pretrained(ARGS.model_path)
+    ARGS.tokenizer.save_pretrained("mbert_token_classifier")
     print("Model and tokenizer saved!")
     return epoch
 
@@ -227,7 +225,7 @@ def cross_validate_model(features, labels, ARGS, num_folds=5):
     - labels: List of corresponding token labels.
     - tokenizer: Pre-trained tokenizer for text processing.
     - model: Pre-trained token classification model.
-    - args: Arguments object with training configuration.
+    - ARGS: Arguments object with training configuration.
     - num_folds: Number of folds for cross-validation.
 
     Outputs:
@@ -292,20 +290,7 @@ def train_and_test_model(ARGS=None, test=True):
                                        include_query=ARGS.include_query,
                                        skip_overflowing_observation=ARGS.skip_overflowing_observation,
                                        raw_input=ARGS.raw_input)
-    print("Data is prepared!")
-    # what is the maximum length of the features and labels?
-    max_len = 0
-    for i in range(len(features)):
-        if len(features[i]) > max_len:
-            max_len = len(features[i])
-    for i in range(len(labels)):
-        if len(labels[i]) > max_len:
-            max_len = len(labels[i])
-        if len(labels[i]) == 374:
-            print(i, labels[i])
 
-    print("Number of observations:", len(features), "|", len(labels))
-    print("Maximum length of features or labels:", max_len)
 
     # Define constants
     ARGS.TOKENIZER_MODEL_NAME = "bert-base-multilingual-cased"
@@ -327,15 +312,16 @@ def train_and_test_model(ARGS=None, test=True):
     # Define optimizer and loss function
     ARGS.loss_fn = CrossEntropyLoss()
     print(f"Device: {ARGS.device}")
+    print()
 
     ### TRAINING
-    num_training_epochs = train_model(model, train_loader, args=ARGS)
+    num_training_epochs = train_model(model, train_loader, ARGS=ARGS)
 
     if not test: return
 
     ### TESTING
     print("Performing inference")
-    predictions = inference(model, test_loader, args=ARGS)
+    predictions = inference(model, test_loader, ARGS=ARGS)
     # The shape (total_samples, seq_len) arises because each input to
     # the model is tokenized and padded/truncated to a fixed length
     # (max_length, typically 128 or another specified value)
@@ -351,8 +337,8 @@ def train_and_test_model(ARGS=None, test=True):
     feature_tokens, y, yhat = get_evaluation_data(test_loader, predictions, tokenizer=ARGS.tokenizer, DEBUG=False)
 
     # if required, save the prediction data to a file
-    if args.output_path is not None:
-        save_lists_to_delim_file(args.output_path, feature_tokens, y, yhat)
+    if ARGS.output_path is not None:
+        save_lists_to_delim_file(ARGS.output_path, feature_tokens, y, yhat)
 
     metrics = evaluate_predictions(y, yhat)
 
@@ -380,24 +366,15 @@ def load_and_test_model(ARGS=None):
                                        include_query=ARGS.include_query,
                                        include_POS=ARGS.include_POS
                                        )
-    print("Data is prepared!")
-    print("Lengths of data:", len(features), len(labels))
 
     # open the json data from ARGS.data_path
     with open(ARGS.data_path, "r") as f:
         data = json.load(f)
     print("Length of JSON data:", len(data))
-    # i have the suspicion that the training data has a row for each sentence in the json data
-    # count the numnber of arrays in the data.model_output_text_processed
-    total = 0
-    for row in data:
-        total += len(row["model_output_text_processed"])
-    print("Total number of sentences in the JSON data:", total)
 
-    # Define constants
-    ARGS.TOKENIZER_MODEL_NAME = "bert-base-multilingual-cased"
 
     print("Loading tokenizer and model...")
+    ARGS.TOKENIZER_MODEL_NAME = "bert-base-multilingual-cased"
     ARGS.tokenizer = BertTokenizer.from_pretrained(ARGS.TOKENIZER_MODEL_NAME)
     print("Tokenizer loaded!")
 
@@ -410,16 +387,17 @@ def load_and_test_model(ARGS=None):
     model = BertForTokenClassification.from_pretrained(ARGS.model_path, num_labels=2)
     model.to(ARGS.device)
     print("Model loaded!")
+    print()
 
     ### TESTING
     print("Performing inference")
-    predictions = inference(model, test_loader, args=ARGS)
+    predictions = inference(model, test_loader, ARGS=ARGS)
     # extract the true labels and the predicted labels
     feature_tokens, y, yhat = get_evaluation_data(test_loader, predictions, tokenizer=ARGS.tokenizer, DEBUG=ARGS.DEBUG)
 
     # if required, save the prediction data to a file
-    if args.output_path is not None:
-        save_lists_to_delim_file(args.output_path, feature_tokens, y, yhat)
+    if ARGS.output_path is not None:
+        save_lists_to_delim_file(ARGS.output_path, feature_tokens, y, yhat)
 
     metrics = evaluate_predictions(y, yhat)
 
@@ -435,7 +413,6 @@ def train_and_test_cross_validation(ARGS=None, test=True):
                                        include_POS=ARGS.include_POS,
                                        include_query=ARGS.include_query,
                                        skip_overflowing_observation=ARGS.skip_overflowing_observation)
-    print("Data is prepared!")
 
     # Define constants
     ARGS.TOKENIZER_MODEL_NAME = "bert-base-multilingual-cased"
@@ -470,6 +447,6 @@ if __name__ == "__main__":
     args.model_path = "./mbert_token_classifier_POSSKIP/"  # path for saving new model or loading pretrained model
     args.DEBUG = False  # print extra information
     ##### SELECT A WORKFLOW #####
-    train_and_test_model(args) # train a new model and test it once
+    # train_and_test_model(ARGS) # train a new model and test it once
+    # train_and_test_cross_validation(ARGS) # train k-fold cross validation and test once
     load_and_test_model(args)  # load a pretrained model and test it once
-    train_and_test_cross_validation(args) # train k-fold cross validation and test once

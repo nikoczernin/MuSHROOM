@@ -167,6 +167,20 @@ def get_data_for_NN(datapath,
     # result in the same sequence of tokens as before!!!
     # features = [" ".join(feature_seq) for feature_seq in features]
     print(f"Data prepared, there are {len(features)} observations in the data.")
+    print("Lengths of data:", len(features), len(labels))
+    # what is the maximum length of the features and labels?
+    max_len = 0
+    for i in range(len(features)):
+        if len(features[i]) > max_len:
+            max_len = len(features[i])
+    for i in range(len(labels)):
+        if len(labels[i]) > max_len:
+            max_len = len(labels[i])
+        if len(labels[i]) == 374:
+            print(i, labels[i])
+
+    print("Maximum length of features or labels:", max_len)
+    print()
     return features, labels
 
 
@@ -252,7 +266,7 @@ def evaluate_predictions(y, yhat, labels_ignore=[-100], accuracy=True, recall=Tr
 
 
 
-def inference(inference_model, dataloader, args, flatten_output=False, binary_output=True):
+def inference(inference_model, dataloader, ARGS, flatten_output=False, binary_output=True):
     """
     Performs inference to predict token labels for the input data.
     - inference_model: Trained model for inference.
@@ -260,7 +274,7 @@ def inference(inference_model, dataloader, args, flatten_output=False, binary_ou
         for batch in trainloader:
             inference(model, batch["input_ids"])
     - dataloader: DataLoader providing batches of input data.
-    - args: Arguments object specifying device for inference.
+    - ARGS: Arguments object specifying device for inference.
     - flatten_output: Whether to return predictions as a single concatenated array. Not recommended.
     Returns:
     - all_predictions: Predicted labels for each token in the input.
@@ -268,8 +282,8 @@ def inference(inference_model, dataloader, args, flatten_output=False, binary_ou
     inference_model.eval()  # is this necessary?
     all_predictions = []
     for batch in dataloader:
-        input_ids = batch["input_ids"].to(args.device)
-        attention_mask = batch["attention_mask"].to(args.device)
+        input_ids = batch["input_ids"].to(ARGS.device)
+        attention_mask = batch["attention_mask"].to(ARGS.device)
         # Get logits from the model
         output = inference_model(input_ids=input_ids, attention_mask=attention_mask)
         # TokenClassifierOutput with attrs: loss, logits, grad_fn, hidden_states, attentions
@@ -287,7 +301,7 @@ def inference(inference_model, dataloader, args, flatten_output=False, binary_ou
 
 
 def save_lists_to_delim_file(output_path, *args, delimiter="[DELIM]"):
-    # *args are an unknown number of lists with the same length
+    # *ARGS are an unknown number of lists with the same length
     # write a csv file where the ith row is the ith element of each list
     with open(output_path, "w") as f:
         for i in range(len(args[0])):
