@@ -25,18 +25,29 @@ This project focuses on **hallucination detection** in model-generated responses
 ### Key Approaches:
 1. **Supervised Baseline (mBERT)**: Fine-tunes mBERT for token classification to detect hallucinated spans.
 2. **Unsupervised Baseline (GPT API)**: Sends query-response pairs to the GPT API and analyzes hallucinations based on GPT outputs.
+3. **Support Vector Machine**: Detects span using an SVM model form sklearn.
 
 ---
 
 ## File Structure
 
-### **baseline/**
+### **classifiers/**
 Contains implementations of supervised baselines for hallucination detection.
 
-- **`mbert_token_classifier_...`**: Saved models from previou iterations of the mBERT token classification baseline.
-- **`baseline_NN_mBERT.py`**: Main file for the neural network-based mBERT token classification baseline.
-- **`baseline_svm.py`**: Implementation of an SVM-based baseline (not quite fleshed out).
-- **`baseline_utils.py`**: Utility functions for baselines (e.g., metrics, data processing).
+- **`mbert_token_classifier_...`**: Saved models from previous iterations of the mBERT token classification baseline.
+- **`NN_Classifier.py`**: Main file for the neural network-based mBERT token classification baseline.
+- **`SVM_Classifier.py`**: Implementation of an SVM-based baseline.
+- **`NN_utils.py`**: Utility functions for models (e.g., metrics, data processing).
+- **`NN_experiments_qualitative_analysis.ipynb`**: Qualitative analysis of the NN classifier results.
+
+---
+
+### **classifiers/GPT/**
+Contains code and data related to the GPT baseline.
+
+- **`gpt_testing.py`**: Script to send query-response pairs to the GPT API.
+- **`calc_accuracy.py`**: Evaluation of the zero-shot GPT with metrics.
+- **`hallucinations.json`**: Output data identifying hallucinated tokens.
 
 ---
 
@@ -54,14 +65,6 @@ Holds datasets and preprocessed files for training, validation, and exploration.
 
 ---
 
-### **GPT/**
-Contains code and data related to the GPT baseline.
-
-- **`gpt_testing.py`**: Script to send query-response pairs to the GPT API.
-- **`hallucinations.json`**: Output data identifying hallucinated tokens.
-
----
-
 ### **preprocess/**
 Scripts and documentation for preprocessing data.
 
@@ -72,15 +75,14 @@ Scripts and documentation for preprocessing data.
 ---
 
 ### **Root Files**
-- **`main.py`**: Entry point to run the project, combining preprocessing, training, and evaluation.
-- **`main.py`**: Entry point to run the project, combining preprocessing, training, and evaluation.
 - **`NLP_Milestone_2.pdf`**: Report for Milestone 2.
+- **`Management Summary`**: Management summary of the project.
 - **`README.md`**: This file, explaining the project and file structure.
 - **`requirements.txt`**: List of required Python libraries.
 
 ---
 
-## How to prep the Project
+## How to run the project
 
 1. Clone the repository:
    ```bash
@@ -88,3 +90,12 @@ Scripts and documentation for preprocessing data.
    cd MuSHROOM
    pip install -r requirements.txt
    ```
+2. Run the classifiers in the classifiers folder in the root
+   - Each classifier can be run in its respective .py file, but for the NN it is recommended to run from the .ipynb
+   - To tweak run parameters see the instance of the Args class, which defines the params for the model scope
+   - See the logged results
+   - For neural network training a GPU is heavily recommended
+
+3.  Qualitative analysis:
+   - Run the NN_experiments_qualitative_analysis.ipynb
+   - The experiments are run there separately too.

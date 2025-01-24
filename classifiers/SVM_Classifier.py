@@ -39,12 +39,12 @@ def prepare_data(features, labels, tokenizer, max_length):
     )
 
 
-def train_svm_model(X_train, y_train):
+def train_svm_model(X_train, y_train, kernel, c):
     """
     Train an SVM model on the prepared input data.
     """
     print("Training SVM model...")
-    svm = SVC(kernel="rbf", C=0.5, class_weight="balanced")
+    svm = SVC(kernel=kernel, C=c, class_weight="balanced")
     svm.fit(X_train.reshape(-1, 1), y_train)
     print("SVM model training complete!")
     return svm
@@ -111,7 +111,6 @@ def evaluate_svm_model(svm, X_test, y_test, mask):
 
 
 def get_data_for_svm(datapath,
-                     max_length=512,
                      include_POS=False,
                      include_query=True,
                      raw_input=False):
@@ -166,13 +165,13 @@ def get_data_for_svm(datapath,
 
 if __name__ == "__main__":
     args = NN_Args()
-    args.MAX_LENGTH = 512
     args.DATA_PATH = "../data/preprocessed/val_preprocessed.json"
     args.include_POS = True
     args.include_query = True
+    args.svm_param_kernel = "rbf"
+    args.svm_param_c = 0.5
 
     features, labels = get_data_for_svm(args.DATA_PATH,
-                                        max_length=args.MAX_LENGTH,
                                         include_POS=args.include_POS,
                                         include_query=args.include_query)
 
@@ -187,6 +186,9 @@ if __name__ == "__main__":
 
     X_train, y_train = X_train[mask_train], y_train[mask_train]
 
-    svm_model = train_svm_model(X_train, y_train)
+    svm_model = train_svm_model(X_train,
+                                y_train,
+                                args.svm_param_kernel,
+                                args.svm_param_c)
 
     evaluate_svm_model(svm_model, X_test, y_test, mask_test)

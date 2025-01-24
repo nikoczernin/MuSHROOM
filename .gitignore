@@ -177,3 +177,5 @@ exploration.py
 *.safetensors
 
 .DS_Store
+
+classifiers/bert-base-multilingual-cased

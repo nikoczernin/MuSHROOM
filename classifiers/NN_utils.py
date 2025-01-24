@@ -8,7 +8,6 @@ import random
 from sklearn.metrics import precision_score, recall_score, f1_score, accuracy_score
 
 
-
 # Helper class for all hyperparameters
 class NN_Args:
     def __init__(self):
@@ -42,6 +41,9 @@ class NN_Args:
         self.DEBUG = False
         # Handling of data size exceeding the maximum length
         self.skip_overflowing_observation = False
+
+        self.svm_param_kernel = None
+        self.svm_param_c = None
 
 
 def timer(func):
@@ -264,8 +266,6 @@ def evaluate_predictions(y, yhat, labels_ignore=[-100], accuracy=True, recall=Tr
     return metrics
 
 
-
-
 def inference(inference_model, dataloader, ARGS, flatten_output=False, binary_output=True):
     """
     Performs inference to predict token labels for the input data.
@@ -297,7 +297,6 @@ def inference(inference_model, dataloader, ARGS, flatten_output=False, binary_ou
             preds = output.logits
         all_predictions.append(preds.cpu())
     return all_predictions
-
 
 
 def save_lists_to_delim_file(output_path, *args, delimiter="[DELIM]"):
