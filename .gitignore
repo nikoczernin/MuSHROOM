@@ -177,7 +177,7 @@ NLP/
 /NLP_IE_2024WS_Exercise.pdf
 
 /classifiers/bert-base-multilingual-cased/
-/data/preprocessed
+#/data/preprocessed
 
 /classifiers/mbert_token_classifier/
 *.safetensors
