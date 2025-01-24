@@ -272,15 +272,15 @@ def cross_validate_model(features, labels, ARGS, num_folds=5):
     return avg_metrics
 
 
-def training_testing(ARGS=None, test=True):
+def train_and_test_model(ARGS=None, test=True):
     """
     Main function to train and test the mBERT model for hallucination detection.
-    - ARGS: Optional arguments object. If None, a new Args instance is created.
+    - ARGS: Optional arguments object. If None, a new NN_Args instance is created.
 
     Steps:
     1. Load preprocessed data.
     2. Initialize tokenizer and model.
-    3. Create DataLoader for training and testing datasets.
+    3. Create DataLoader for training and load_and_test_model datasets.
     4. Train the model.
     5. Perform inference on the test dataset.
     6. Evaluate model performance using precision, recall, F1-score, and accuracy.
@@ -361,10 +361,10 @@ def training_testing(ARGS=None, test=True):
         print(f"{metric}: {value:.4f}")
 
 
-def testing(ARGS=None):
+def load_and_test_model(ARGS=None):
     """
     Main function to train and test the mBERT model for hallucination detection.
-    - ARGS: Optional arguments object. If None, a new Args instance is created.
+    - ARGS: Optional arguments object. If None, a new NN_Args instance is created.
 
     Steps:
     1. Load preprocessed data
@@ -428,7 +428,7 @@ def testing(ARGS=None):
         print(f"{metric}: {value:.4f}")
 
 
-def training_testing_cv(ARGS=None, test=True):
+def train_and_test_cross_validation(ARGS=None, test=True):
     os.chdir(os.getcwd())
     features, labels = get_data_for_NN(ARGS.data_path,
                                        max_length=ARGS.MAX_LENGTH,
@@ -457,7 +457,7 @@ def training_testing_cv(ARGS=None, test=True):
 
 
 if __name__ == "__main__":
-    args = Args()  # dont touch
+    args = NN_Args()  # dont touch
     args.MAX_LENGTH = 512
     args.patience = 3
     args.raw_input = True  # recommended. skips Stanza preprocessing
@@ -470,6 +470,6 @@ if __name__ == "__main__":
     args.model_path = "./mbert_token_classifier_POSSKIP/"  # path for saving new model or loading pretrained model
     args.DEBUG = False  # print extra information
     ##### SELECT A WORKFLOW #####
-    # training_testing(args) # train a new model and test it once
-    testing(args)  # load a pretrained model and test it once
-    # training_testing_cv(args) # train k-fold cross validation and test once
+    train_and_test_model(args) # train a new model and test it once
+    load_and_test_model(args)  # load a pretrained model and test it once
+    train_and_test_cross_validation(args) # train k-fold cross validation and test once

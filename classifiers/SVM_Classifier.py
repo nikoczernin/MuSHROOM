@@ -4,7 +4,7 @@ from transformers import BertTokenizer
 import numpy as np
 import json
 
-from NN_utils import Args
+from NN_utils import NN_Args
 
 
 def prepare_data(features, labels, tokenizer, max_length):
@@ -165,7 +165,7 @@ def get_data_for_svm(datapath,
 
 
 if __name__ == "__main__":
-    args = Args()
+    args = NN_Args()
     args.MAX_LENGTH = 512
     args.DATA_PATH = "../data/preprocessed/val_preprocessed.json"
     args.include_POS = True

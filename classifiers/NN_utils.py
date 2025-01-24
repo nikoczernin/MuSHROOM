@@ -10,7 +10,7 @@ from sklearn.metrics import precision_score, recall_score, f1_score, accuracy_sc
 
 
 # Helper class for all hyperparameters
-class Args:
+class NN_Args:
     def __init__(self):
         self.MAX_LENGTH = 128 * 4  # Max token length for mBERT
         # Set device
@@ -48,7 +48,7 @@ def timer(func):
     """
     A decorator to measure and print the execution time of a function.
 
-    Args:
+    NN_Args:
     - func (function): The function to be wrapped by the timer decorator.
 
     Returns:
@@ -173,7 +173,7 @@ def get_data_for_NN(datapath,
 def set_seed(seed: int):
     """
     Sets the seed for reproducibility across multiple libraries.
-    Args:
+    NN_Args:
         seed (int): The seed value to set.
     """
     random.seed(seed)  # Set seed for Python's built-in random module
